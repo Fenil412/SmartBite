@@ -21,6 +21,8 @@ import { AdminProvider } from "./contexts/AdminContext";
 // Dashboard Layout Pages
 import Settings from "./pages/Settings/Settings";
 
+import Chatbot from "./Chatbot";
+
 function App() {
   const location = useLocation();
 
@@ -43,6 +45,14 @@ function App() {
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/chatai"
+          // element={<ProtectedRoute><Chatbot darkMode={darkMode} /></ProtectedRoute>}
+          element={
+              <Chatbot/>
           }
         />
 
