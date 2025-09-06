@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import json
-
+from dotenv import load_dotenv
+import os
+load_dotenv()
 app = Flask(__name__)
 
 # Correct CORS configuration - don't add headers elsewhere
@@ -12,11 +14,7 @@ CORS(app,
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "OPTIONS"])
 
-# Load configuration
-with open('config.json') as config_file:
-    config = json.load(config_file)
-
-GROQ_API_KEY = config["GROQ_API_KEY"]
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 @app.route('/api/chat/getMessages', methods=['GET'])

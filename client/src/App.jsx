@@ -5,7 +5,8 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
 import SignUpPage from "./pages/SignUpPage";
-import UserProfilePage from "./pages/UserProfilePage";
+import UserProfilePage from "./pages/UserProfilePage"
+import Dashboard from "./pages/Dashboard";
 import VerifyOtpPage from "./pages/VerifyOtpPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import Layout from "./Layout.jsx";
@@ -45,6 +46,13 @@ function App() {
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+              <Dashboard />
           }
         />
 
