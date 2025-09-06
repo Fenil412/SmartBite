@@ -182,8 +182,8 @@ export default function PreferencesPage() {
                         ${
                           // Check if the healthGoals array includes the current option's value
                           healthGoals.includes(option.value) 
-                            ? "bg-gradient-to-r from-orange-100 to-yellow-100 border-orange-300 text-orange-700 font-bold shadow-md"
-                            : "bg-white/60 border-pink-100 text-gray-600 hover:bg-orange-50 hover:text-orange-500 font-medium"
+                            ? "bg-gradient-to-r from-orange-100 to-yellow-100 border  font-bold shadow-md"
+                            : "bg-white/60 border-pink-100  hover:bg-orange-50 hover:text-orange-500 font-medium"
                         }`}
                       // Use the new handleHealthGoalChange function
                       onClick={() => handleHealthGoalChange(option.value)} 
@@ -204,7 +204,7 @@ export default function PreferencesPage() {
                 <input
                   type="number"
                   placeholder="e.g., 2000"
-                  value={targetCalories}
+                  value={targetCalories}border-orange-300
                   onChange={(e) => setTargetCalories(e.target.value)}
                   className="w-full p-4 rounded-xl border-2 border-pink-200 focus:border-pink-400 focus:ring-pink-400 focus:ring-opacity-50 transition-all duration-200 text-lg font-medium text-gray-700 placeholder-gray-400 bg-pink-50/50"
                   min="1000"

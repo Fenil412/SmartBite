@@ -1,52 +1,64 @@
-import React, { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAuth } from "../contexts/AuthContext"
-import { useToast } from "../components/ui/use-toast"
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../components/ui/use-toast"; // Assuming this is your toast notification system
 
 export default function VerifyOtpPage() {
-  const [otp, setOtp] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const { verifyOtp } = useAuth()
-  const { toast } = useToast()
-  const navigate = useNavigate()
+  const [otp, setOtp] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { verifyOtp } = useAuth(); // Assuming useAuth provides verifyOtp
+  const { toast } = useToast(); // For displaying notifications
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!otp) {
-      toast({ variant: "destructive", title: "Missing OTP", description: "Please enter the OTP." })
-      return
+      toast({ variant: "destructive", title: "Missing OTP", description: "Please enter the OTP." });
+      return;
     }
 
-    setIsLoading(true)
-    const result = await verifyOtp(otp)
-    setIsLoading(false)
+    setIsLoading(true);
+    const result = await verifyOtp(otp); // Call your OTP verification function
+    setIsLoading(false);
 
     if (result.success) {
-      toast({ title: "OTP Verified", description: "Signed in successfully." })
-      navigate("/settings")
+      toast({ title: "OTP Verified", description: "Signed in successfully." });
+      navigate("/dashboard"); // Redirect to dashboard on success
     } else {
-      toast({ variant: "destructive", title: "Invalid OTP", description: result.message })
+      toast({ variant: "destructive", title: "Invalid OTP", description: result.message });
     }
-  }
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-100 to-blue-100 p-4 dark:from-gray-900 dark:to-blue-900">
-      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white/60 p-8 shadow-2xl backdrop-blur-lg dark:bg-gray-800/60 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-50 relative overflow-hidden flex items-center justify-center p-4">
+      {/* Animated Background Elements - adapted for skin tone theme */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-rose-200 rounded-full opacity-20 animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-200 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-100 rounded-full opacity-10 animate-spin" style={{ animationDuration: '20s' }}></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md space-y-6 rounded-3xl bg-white/70 p-8 shadow-2xl backdrop-blur-lg border border-white/30 animate-fade-in">
         <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">Verify Your OTP</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Welcome to our blogging platform, where your voice matters! We're thrilled to have you join our community of passionate writers and storytellers.
+          <div className="w-24 h-24 bg-gradient-to-br from-rose-300 to-pink-500 rounded-full flex items-center justify-center text-white text-4xl mx-auto mb-6 shadow-lg">
+            🔐
+          </div>
+          <h2 className="text-3xl font-extrabold bg-gradient-to-r from-rose-500 to-pink-600 bg-clip-text text-transparent mb-4">
+            Verify Your Account
+          </h2>
+          <p className="mt-2 text-md text-gray-800">
+            Welcome to our blogging platform! We're thrilled to have you join our community.
           </p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Enter the OTP sent to your email to verify your account and unlock a world of creative possibilities. Share your ideas, connect with readers, and build your online presence with our industry-leading tools designed for bloggers.
+          <p className="mt-4 text-sm text-gray-700">
+            Enter the One-Time Password (OTP) sent to your email to verify your account and unlock a world of creative possibilities. Share your ideas, connect with readers, and build your online presence.
           </p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          <p className="mt-2 text-sm text-gray-700">
             If you haven't received the OTP, please check your spam folder or request a new one from your account settings.
           </p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="otp" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-2">
               OTP *
             </label>
             <input
@@ -54,20 +66,32 @@ export default function VerifyOtpPage() {
               type="text"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter OTP"
+              placeholder="Enter your 6-digit OTP"
               required
-              className="mt-1 block w-full rounded-lg border border-gray-300/50 bg-white/80 px-4 py-2.5 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 dark:border-gray-600/50 dark:bg-gray-700/80 dark:text-white dark:placeholder-gray-400"
+              maxLength={6}
+              className="mt-1 block w-full rounded-xl border-0 bg-pink-50 focus:bg-white p-4 text-lg font-medium transition-all duration-200 outline-none focus:ring-2 focus:ring-rose-300 shadow-inner placeholder:text-gray-500"
             />
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-transform hover:scale-105 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`w-full px-8 py-4 rounded-xl font-semibold text-white transition-all duration-300 transform ${
+              isLoading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 hover:shadow-lg hover:-translate-y-1 shadow-xl'
+            }`}
           >
-            {isLoading ? "Verifying..." : "Verify OTP"}
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                Verifying...
+              </div>
+            ) : (
+              'Verify OTP'
+            )}
           </button>
         </form>
       </div>
     </div>
-  )
+  );
 }

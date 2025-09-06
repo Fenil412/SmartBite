@@ -1,213 +1,75 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { useTheme } from "../contexts/ThemeContext";
-import { Moon, Sun, Menu, X, BookmarkIcon, Users } from "lucide-react";
-import logo from "../../photos/BloggingLogo.jpg";
+import React from "react";
+import { Menu, LogIn, UserPlus, ChefHat } from "lucide-react";
+// import ThemeToggle from "./ThemeToggle"; // Uncomment if you want ThemeToggle in the Header
 
-const Header = () => {
-  const { isAuthenticated, isAdmin, user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-  const buttonBase =
-    "px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200";
-  const buttonGhost = `${buttonBase} bg-transparent hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:text-white dark:hover:text-red-500`;
-  const buttonSolid = `${buttonBase} bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600`;
-  const buttonIcon =
-    "p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200";
+// Header now receives openMobileMenu and navigate props
+export default function Header({ openMobileMenu, navigate }) {
+  // You might want to get isDarkMode from context or a prop if you re-implement theme here
+  const isDarkMode = false; // Placeholder for theme state
 
   return (
-    <header className="border-t border-gray-400 bg-white dark:border-gray-500 dark:bg-gray-800 transition-colors duration-200">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center">
-            <img
-              src={logo || "/placeholder.svg"}
-              className="h-14 mt-1 sm:h-13 mr-2 sm:mr-3 dark:invert"
-              alt="Logo"
-            />
-          </Link>
-        </div>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          <Link
-            to="/"
-            className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-          >
-            Home
-          </Link>
-          {isAuthenticated ? (
-            <>
-              <Link
-                to="/dashboard"
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
+    <>
+      {/* Mobile Header - Only visible on mobile */}
+      <header className={`lg:hidden fixed top-0 left-0 right-0 z-50 ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-700" : "bg-white/90 backdrop-blur-xl border-b border-pink-100/50 shadow-sm"}`}>
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={openMobileMenu} // This button opens the mobile menu
+                className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-pink-50"} transition-colors touch-target`}
               >
-                Dashboard
-              </Link>
-
-              <Link
-                to={`/profile/${user?._id}`}
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-              >
-                Profile
-              </Link>
-              <Link
-                to="/settings"
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-              >
-                Settings
-              </Link>
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-                >
-                  Admin
-                </Link>
-              )}
-              <button className={buttonGhost} onClick={logout}>
-                Logout
+                <Menu className={`h-6 w-6 ${isDarkMode ? "text-gray-100" : "text-gray-600"}`} />
               </button>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                Hi, {user?.username || "User"}
-              </span>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/signin"
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-orange-400 rounded-xl flex items-center justify-center shadow-lg">
+                  <ChefHat className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent">Smart Bite</h3>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* <ThemeToggle isDarkMode={isDarkMode} toggleDarkMode={() => {}} /> */} {/* Uncomment and pass actual toggle function */}
+              <button
+                onClick={() => navigate("/signin")} // Corrected navigation
+                className={`px-3 py-1.5 ${isDarkMode ? "text-gray-300 hover:text-pink-400 hover:bg-gray-700" : "text-gray-600 hover:text-pink-500 hover:bg-pink-50"} transition-colors font-medium rounded-lg text-sm`}
               >
                 Sign In
-              </Link>
-              <Link to="/signup">
-                <button className={buttonSolid}>Sign Up</button>
-              </Link>
-            </>
-          )}
-          <button
-            className={buttonIcon}
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            ) : (
-              <Moon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            )}
-          </button>
-        </nav>
-
-        {/* Mobile Menu Button */}
-        <div className="flex items-center gap-2 md:hidden">
-          <button
-            className={buttonIcon}
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            ) : (
-              <Moon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            )}
-          </button>
-          <button
-            className={buttonIcon}
-            onClick={toggleMenu}
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? (
-              <X className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            ) : (
-              <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            )}
-          </button>
+              </button>
+              <button
+                onClick={() => navigate("/signup")} // Corrected navigation
+                className="px-4 py-1.5 bg-gradient-to-r from-pink-400 to-orange-400 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm"
+              >
+                Start Free
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="container md:hidden py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-          <nav className="flex flex-col space-y-4">
-            <Link
-              to="/"
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-              onClick={toggleMenu}
-            >
-              Home
-            </Link>
-
-            {isAuthenticated ? (
-              <>
-                <Link
-                  to="/dashboard"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-                  onClick={toggleMenu}
-                >
-                  Dashboard
-                </Link>
-
-                <Link
-                  to={`/profile/${user?._id}`}
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-                  onClick={toggleMenu}
-                >
-                  Profile
-                </Link>
-                <Link
-                  to="/settings"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-                  onClick={toggleMenu}
-                >
-                  Settings
-                </Link>
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-                    onClick={toggleMenu}
-                  >
-                    Admin
-                  </Link>
-                )}
-                <button
-                  className={buttonGhost}
-                  onClick={() => {
-                    logout();
-                    toggleMenu();
-                  }}
-                >
-                  Logout
-                </button>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  Hi, {user?.username || "User"}
-                </span>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/signin"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200"
-                  onClick={toggleMenu}
-                >
-                  Sign In
-                </Link>
-                <Link to="/signup" onClick={toggleMenu}>
-                  <button className={buttonSolid}>Sign Up</button>
-                </Link>
-              </>
-            )}
-          </nav>
+      {/* Desktop Header - Only visible on large screens */}
+      <header className={`hidden lg:block fixed top-0 right-0 w-[calc(100%-16rem)] z-50 ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-700" : "bg-white/90 backdrop-blur-xl border-b border-pink-100/50 shadow-sm"}`}>
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-end">
+            <div className="flex items-center gap-3">
+              {/* <ThemeToggle isDarkMode={isDarkMode} toggleDarkMode={() => {}} /> */} {/* Uncomment and pass actual toggle function */}
+              <button
+                onClick={() => navigate("/signin")} // Corrected navigation
+                className={`px-4 py-2 ${isDarkMode ? "text-gray-300 hover:text-pink-400 hover:bg-gray-700" : "text-gray-600 hover:text-pink-500 hover:bg-pink-50"} transition-colors font-medium rounded-xl`}
+              >
+                <LogIn className="w-4 h-4 mr-1 inline" />
+                Sign In
+              </button>
+              <button
+                onClick={() => navigate("/signup")} // Corrected navigation
+                className="px-6 py-2.5 bg-gradient-to-r from-pink-400 to-orange-400 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200"
+              >
+                <UserPlus className="w-4 h-4 mr-1 inline" />
+                Start Free
+              </button>
+            </div>
+          </div>
         </div>
-      )}
-    </header>
+      </header>
+    </>
   );
-};
-
-export default Header;
+}
