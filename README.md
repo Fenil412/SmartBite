@@ -1,7 +1,7 @@
 ````markdown
 # 🍽️ SmartBite – AI-Powered Meal Planner
 
-🎥 [Watch the Demo on YouTube](https://youtu.be/oOi-JO964K0?si=3IaJPU_74WhA7m2P-link)  
+🎥 [Watch the Demo on YouTube](https://youtu.be/oOi-JO964K0?si=3IaJPU_74WhA7m2P)  
 
 SmartBite is a **full-stack web application** that generates **personalized meal recommendations and weekly diet plans** using **AI/ML models** combined with a modern web stack. It blends **nutrition science** with **machine learning optimization** to help users achieve their **health and fitness goals**.
 
