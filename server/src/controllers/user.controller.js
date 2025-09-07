@@ -26,7 +26,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 }
 
 const registerUser = asyncHandler(async (req, res) => {
-    const { fullName, email, username, password, bio, role } = req.body
+    const { fullName, email, username, password, bio, role, primaryHealthGoal, dietaryPreferences, allergies } = req.body
 
     if ([fullName, email, username, password].some(field => !field || field.trim() === "")) {
         throw new ApiError(400, "All required fields must be provided")
@@ -77,7 +77,11 @@ const registerUser = asyncHandler(async (req, res) => {
         coverImage: coverImage ? {
             url: coverImage.url,
             public_id: coverImage.public_id
-        } : null
+        } : null,
+        // New fields
+        primaryHealthGoal: primaryHealthGoal || "",
+        dietaryPreferences: dietaryPreferences || [],
+        allergies: allergies || []
     })
 
     const createdUser = await User.findById(user._id).select("-password -refreshToken")
@@ -253,8 +257,12 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Both passwords are required")
     }
 
+    if (newPassword.length < 8) {
+        throw new ApiError(400, "New password must be at least 8 characters")
+    }
+
     if (oldPassword === newPassword) {
-        throw new ApiError(400, "New password must be different")
+        throw new ApiError(400, "New password must be different from the old password")
     }
 
     const user = await User.findById(req.user?._id)
@@ -299,7 +307,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 })
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-    const { fullName, email, bio, website, location, socialLinks } = req.body
+    const { fullName, email, bio, location } = req.body
 
     if (!fullName || !email) {
         throw new ApiError(400, "Full name and email are required")
@@ -309,21 +317,48 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
         fullName,
         email,
         bio: bio || "",
-        website: website || "",
         location: location || "",
-        socialLinks: socialLinks || {}
     }
 
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         { $set: updateData },
-        { new: true }
+        { new: true, runValidators: true } // Run validators for email
     ).select("-password -refreshToken")
 
     return res
         .status(200)
         .json(new ApiResponse(200, user, "Account details updated"))
 })
+
+const updateUserProfileHealthDetails = asyncHandler(async (req, res) => {
+    const { primaryHealthGoal, dietaryPreferences, allergies } = req.body;
+
+    const updateFields = {};
+    if (primaryHealthGoal !== undefined) updateFields.primaryHealthGoal = primaryHealthGoal;
+    if (dietaryPreferences !== undefined) updateFields.dietaryPreferences = dietaryPreferences;
+    if (allergies !== undefined) updateFields.allergies = allergies;
+
+    // Check if any fields are provided for update
+    if (Object.keys(updateFields).length === 0) {
+        throw new ApiError(400, "No health-related fields provided for update");
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        { $set: updateFields },
+        { new: true, runValidators: true } // Run validators for enum types
+    ).select("-password -refreshToken");
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "User health profile updated successfully"));
+});
+
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
     const avatarLocalPath = req.file?.path
@@ -353,7 +388,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         url: newAvatar.url,
         public_id: newAvatar.public_id
     }
-    await user.save()
+    await user.save({ validateBeforeSave: false })
 
     return res
         .status(200)
@@ -388,7 +423,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         url: newCoverImage.url,
         public_id: newCoverImage.public_id
     }
-    await user.save()
+    await user.save({ validateBeforeSave: false })
 
     return res
         .status(200)
@@ -448,7 +483,6 @@ const deleteUser = asyncHandler(async (req, res) => {
 })
 
 
-
 const getReadHistory = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
         .populate({
@@ -479,6 +513,7 @@ export {
     changeCurrentPassword,
     getCurrentUser,
     updateAccountDetails,
+    updateUserProfileHealthDetails, // Export the new controller
     updateUserAvatar,
     deleteUser,
     generateAccessAndRefreshTokens,

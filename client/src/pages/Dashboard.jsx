@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Header from "../components/Header";
-import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import HomePage from "./HomePage";
 
@@ -19,7 +18,6 @@ export default function Dashboard() {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          isOpen={isSidebarOpen}
           closeSidebar={closeSidebar}
         />
         <HomePage activeTab={activeTab} />

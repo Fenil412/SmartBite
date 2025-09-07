@@ -71,19 +71,58 @@ const userSchema = new Schema(
             enum: ['active', 'suspended', 'pending'],
             default: 'active'
         },
-        website: {
-            type: String,
-            trim: true
-        },
         location: {
             type: String,
             trim: true
         },
-        socialLinks: {
-            twitter: String,
-            linkedin: String,
-            github: String
-        }
+        // New Field: Primary Health Goal
+        primaryHealthGoal: {
+            type: String,
+            enum: [
+                "Weight Loss",
+                "Muscle Gain",
+                "Healthy Eating",
+                "Improved Fitness",
+                "Stress Reduction",
+                "Better Sleep",
+                "Boost Energy",
+                "Manage Chronic Conditions",
+                "" // Allow empty string for optional selection
+            ],
+            default: ""
+        },
+        // New Field: Dietary Preferences
+        dietaryPreferences: {
+            type: [String], // Array of strings
+            enum: [
+                "Vegetarian",
+                "Vegan",
+                "Keto",
+                "Paleo",
+                "Mediterranean",
+                "Gluten-Free",
+                "Dairy-Free",
+                "Halal",
+                "Kosher"
+            ],
+            default: []
+        },
+        // New Field: Allergies
+        allergies: {
+            type: [String], // Array of strings
+            enum: [
+                "Peanuts",
+                "Tree Nuts",
+                "Milk",
+                "Eggs",
+                "Soy",
+                "Wheat",
+                "Fish",
+                "Shellfish",
+                "Sesame"
+            ],
+            default: []
+        },
     },
     {
         timestamps: true,

@@ -5,8 +5,9 @@ import {
     updateUser,
     deleteUser,
     getPlatformStats,
-    searchUsers,
-    toggleUserStatus
+    // searchUsers, // Removed as getAllUsers now handles search
+    toggleUserStatus,
+    getUserReadHistory // Import the new function
 } from "../controllers/admin.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { isAdmin } from "../middlewares/role.middleware.js";
@@ -17,9 +18,9 @@ const router = Router();
 router.use(verifyJWT, isAdmin);
 
 // User management
+// Consolidated getAllUsers and searchUsers into a single route
 router.route('/users')
-    .get(getAllUsers)
-    .get(searchUsers); // GET /admin/users?search=query
+    .get(getAllUsers); // Handles pagination, filtering, and search via query parameters
 
 router.route('/users/:id')
     .get(getUserById)
@@ -28,6 +29,10 @@ router.route('/users/:id')
 
 router.route('/users/:id/status')
     .patch(toggleUserStatus);
+
+// New route for fetching a user's full read history
+router.route('/users/:id/read-history')
+    .get(getUserReadHistory);
 
 // Platform analytics
 router.route('/stats')

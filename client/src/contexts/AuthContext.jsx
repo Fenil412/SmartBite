@@ -51,6 +51,22 @@ export function AuthProvider({ children }) {
       uploadData.append("password", formData.password);
       uploadData.append("bio", formData.bio || "");
       uploadData.append("role", formData.role || "user");
+      // Add health details if present
+      if (formData.dateOfBirth) {
+        uploadData.append("healthProfile.dateOfBirth", formData.dateOfBirth);
+      }
+      if (formData.gender) {
+        uploadData.append("healthProfile.gender", formData.gender);
+      }
+      if (formData.height) {
+        uploadData.append("healthProfile.height", formData.height);
+      }
+      if (formData.weight) {
+        uploadData.append("healthProfile.weight", formData.weight);
+      }
+      if (formData.bloodGroup) {
+        uploadData.append("healthProfile.bloodGroup", formData.bloodGroup);
+      }
 
       if (formData.avatar) {
         uploadData.append("avatar", formData.avatar);
@@ -100,6 +116,14 @@ export function AuthProvider({ children }) {
           success: true,
           requiresOtp: true,
           message: response.data.data.message || "OTP sent to your email",
+        };
+      } else if (response.data.success) {
+        // If OTP is not required, directly log in the user
+        setUser(response.data.data.user);
+        return {
+          success: true,
+          requiresOtp: false,
+          message: response.data.message || "Login successful",
         };
       }
 
@@ -238,6 +262,45 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateUserHealthProfile = async ({
+    dateOfBirth,
+    gender,
+    height,
+    weight,
+    bloodGroup,
+  }) => {
+    try {
+      const response = await axios.patch("/api/v1/users/health-profile", {
+        dateOfBirth,
+        gender,
+        height,
+        weight,
+        bloodGroup,
+      });
+
+      if (response.data.success) {
+        setUser(response.data.data); // Update user state with new health profile
+        return {
+          success: true,
+          message:
+            response.data.message || "Health profile updated successfully",
+        };
+      }
+
+      return {
+        success: false,
+        message: "Failed to update health profile",
+      };
+    } catch (error) {
+      console.error("Health profile update failed:", error);
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || "Failed to update health profile",
+      };
+    }
+  };
+
   const updateAvatar = async (avatarFile) => {
     try {
       const formData = new FormData();
@@ -306,8 +369,6 @@ export function AuthProvider({ children }) {
       };
     }
   };
-
-  
 
   const getReadHistory = async () => {
     try {
@@ -415,6 +476,7 @@ export function AuthProvider({ children }) {
     refreshToken,
     changePassword,
     updateAccountDetails,
+    updateUserHealthProfile, // Add the new function to the context value
     updateAvatar,
     deleteAccount,
     updateCoverImage,

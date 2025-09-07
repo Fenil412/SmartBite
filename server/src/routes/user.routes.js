@@ -11,7 +11,8 @@ import {
     updateUserAvatar,
     updateUserCoverImage,
     getReadHistory,
-    updateAccountDetails
+    updateAccountDetails,
+    updateUserProfileHealthDetails // Import the new controller function
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"
 import { verifyJWT } from "../middlewares/auth.middleware.js";
@@ -40,6 +41,9 @@ router.route("/change-password").post(changeCurrentPassword)
 router.route("/current-user").get(getCurrentUser)
 router.route("/update-account").patch(updateAccountDetails)
 router.route("/read-history").get(getReadHistory)
+
+// New route for updating health profile
+router.route("/health-profile").patch(updateUserProfileHealthDetails);
 
 // Avatar and cover image routes
 router.route("/avatar").patch(upload.single("avatar"), updateUserAvatar)

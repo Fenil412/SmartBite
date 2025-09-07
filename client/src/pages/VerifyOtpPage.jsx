@@ -1,19 +1,35 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useToast } from "../components/ui/use-toast"; // Assuming this is your toast notification system
+// import { useToast } from "../components/ui/use-toast"; // Remove this line
 
 export default function VerifyOtpPage() {
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPopup, setShowPopup] = useState(false); // New state for custom pop-up
+  const [popupMessage, setPopupMessage] = useState({
+    title: "",
+    description: "",
+    type: "",
+  }); // New state for pop-up content
   const { verifyOtp } = useAuth(); // Assuming useAuth provides verifyOtp
-  const { toast } = useToast(); // For displaying notifications
+  // const { toast } = useToast(); // Remove or comment out this line
   const navigate = useNavigate();
+
+  const handleShowPopup = (title, description, type = "success") => {
+    setPopupMessage({ title, description, type });
+    setShowPopup(true);
+  };
+
+  const handleClosePopup = () => {
+    setShowPopup(false);
+    setPopupMessage({ title: "", description: "", type: "" });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!otp) {
-      toast({ variant: "destructive", title: "Missing OTP", description: "Please enter the OTP." });
+      handleShowPopup("Missing OTP", "Please enter the OTP.", "destructive");
       return;
     }
 
@@ -21,11 +37,16 @@ export default function VerifyOtpPage() {
     const result = await verifyOtp(otp); // Call your OTP verification function
     setIsLoading(false);
 
+    // ... inside handleSubmit
     if (result.success) {
-      toast({ title: "OTP Verified", description: "Signed in successfully." });
-      navigate("/dashboard"); // Redirect to dashboard on success
+      handleShowPopup("OTP Verified", "Signed in successfully.");
+      // Add a timeout for automatic redirect after a short delay
+      setTimeout(() => {
+        handleClosePopup(); // Close popup first
+        navigate("/settings"); // Then redirect
+      }, 2000); // Redirect after 2 seconds
     } else {
-      toast({ variant: "destructive", title: "Invalid OTP", description: result.message });
+      handleShowPopup("Invalid OTP", result.message, "destructive");
     }
   };
 
@@ -34,8 +55,14 @@ export default function VerifyOtpPage() {
       {/* Animated Background Elements - adapted for skin tone theme */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-rose-200 rounded-full opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-200 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-100 rounded-full opacity-10 animate-spin" style={{ animationDuration: '20s' }}></div>
+        <div
+          className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-200 rounded-full opacity-20 animate-pulse"
+          style={{ animationDelay: "1s" }}
+        ></div>
+        <div
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-100 rounded-full opacity-10 animate-spin"
+          style={{ animationDuration: "20s" }}
+        ></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md space-y-6 rounded-3xl bg-white/70 p-8 shadow-2xl backdrop-blur-lg border border-white/30 animate-fade-in">
@@ -47,18 +74,25 @@ export default function VerifyOtpPage() {
             Verify Your Account
           </h2>
           <p className="mt-2 text-md text-gray-800">
-            Welcome to our blogging platform! We're thrilled to have you join our community.
+            Welcome to our blogging platform! We're thrilled to have you join
+            our community.
           </p>
           <p className="mt-4 text-sm text-gray-700">
-            Enter the One-Time Password (OTP) sent to your email to verify your account and unlock a world of creative possibilities. Share your ideas, connect with readers, and build your online presence.
+            Enter the One-Time Password (OTP) sent to your email to verify your
+            account and unlock a world of creative possibilities. Share your
+            ideas, connect with readers, and build your online presence.
           </p>
           <p className="mt-2 text-sm text-gray-700">
-            If you haven't received the OTP, please check your spam folder or request a new one from your account settings.
+            If you haven't received the OTP, please check your spam folder or
+            request a new one from your account settings.
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="otp"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               OTP *
             </label>
             <input
@@ -77,8 +111,8 @@ export default function VerifyOtpPage() {
             disabled={isLoading}
             className={`w-full px-8 py-4 rounded-xl font-semibold text-white transition-all duration-300 transform ${
               isLoading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 hover:shadow-lg hover:-translate-y-1 shadow-xl'
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 hover:shadow-lg hover:-translate-y-1 shadow-xl"
             }`}
           >
             {isLoading ? (
@@ -87,11 +121,79 @@ export default function VerifyOtpPage() {
                 Verifying...
               </div>
             ) : (
-              'Verify OTP'
+              "Verify OTP"
             )}
           </button>
         </form>
       </div>
+
+      {/* Custom Pop-up */}
+      {showPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 animate-fade-in">
+          <div
+            className={`relative w-full max-w-sm rounded-lg p-6 shadow-xl backdrop-blur-md border ${
+              popupMessage.type === "destructive"
+                ? "bg-red-500/80 text-white border-red-400"
+                : "bg-white/90 text-gray-800 border-gray-200"
+            }`}
+          >
+            <button
+              onClick={handleClosePopup}
+              className="absolute top-3 right-3 text-lg font-semibold cursor-pointer z-20"
+              aria-label="Close"
+            >
+              <svg
+                className={`w-6 h-6 ${
+                  popupMessage.type === "destructive"
+                    ? "text-white"
+                    : "text-gray-600"
+                } hover:text-gray-900`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+            <h3
+              className={`text-xl font-bold mb-2 ${
+                popupMessage.type === "destructive"
+                  ? "text-white"
+                  : "text-gray-900"
+              }`}
+            >
+              {popupMessage.title}
+            </h3>
+            <p
+              className={`${
+                popupMessage.type === "destructive"
+                  ? "text-white/90"
+                  : "text-gray-700"
+              }`}
+            >
+              {popupMessage.description}
+            </p>
+            {/* Optional: Add a button to redirect after success, or just let the user close */}
+            {popupMessage.type === "success" && (
+              <button
+                onClick={() => {
+                  handleClosePopup();
+                  navigate("/settings"); // Redirect to dashboard on success
+                }}
+                className="mt-4 w-full px-4 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 text-white font-semibold hover:from-rose-600 hover:to-pink-700 transition-all duration-200"
+              >
+                Go to Settings
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

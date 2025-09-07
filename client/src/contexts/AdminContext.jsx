@@ -7,6 +7,7 @@ const AdminContext = createContext()
 export function AdminProvider({ children }) {
   const [users, setUsers] = useState([])
   const [userDetails, setUserDetails] = useState(null)
+  const [userReadHistory, setUserReadHistory] = useState([]) // New state for user read history
   const [platformStats, setPlatformStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -19,7 +20,7 @@ export function AdminProvider({ children }) {
 
       const { page = 1, limit = 20, role, status, search } = params
 
-      const response = await axios.get("${import.meta.env.VITE_API_URL}/api/v1/admin/users", {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/v1/admin/users`, {
         params: {
           page,
           limit,
@@ -176,12 +177,34 @@ export function AdminProvider({ children }) {
     }
   }
 
+  const getUserReadHistory = async (userId) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/v1/admin/users/${userId}/read-history`)
+
+      setUserReadHistory(response.data.data || [])
+      return response.data
+    } catch (error) {
+      setError(error.response?.data?.message || "Failed to fetch user read history")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.response?.data?.message || "Failed to fetch user read history",
+      })
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getPlatformStats = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const response = await axios.get("${import.meta.env.VITE_API_URL}/api/v1/admin/stats")
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/v1/admin/stats`)
 
       setPlatformStats(response.data.data)
       return response.data
@@ -198,37 +221,16 @@ export function AdminProvider({ children }) {
     }
   }
 
+  // searchUsers is now handled by getAllUsers with a 'search' parameter
+  // Keeping this for clarity, but it just calls getAllUsers.
   const searchUsers = async (searchQuery, page = 1, limit = 20) => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const response = await axios.get("${import.meta.env.VITE_API_URL}/api/v1/admin/users", {
-        params: {
-          search: searchQuery,
-          page,
-          limit,
-        },
-      })
-
-      setUsers(response.data.data.docs || [])
-      return response.data
-    } catch (error) {
-      setError(error.response?.data?.message || "Failed to search users")
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.response?.data?.message || "Failed to search users",
-      })
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
+    return getAllUsers({ search: searchQuery, page, limit });
+  };
 
   const value = {
     users,
     userDetails,
+    userReadHistory, // Expose userReadHistory
     platformStats,
     loading,
     error,
@@ -237,9 +239,11 @@ export function AdminProvider({ children }) {
     updateUser,
     toggleUserStatus,
     deleteUser,
+    getUserReadHistory, // Expose the new function
     getPlatformStats,
     searchUsers,
     setUserDetails,
+    setUserReadHistory, // Expose setter for read history if needed
   }
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>

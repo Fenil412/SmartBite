@@ -39,9 +39,6 @@ const Settings = () => {
     fullName: "",
     email: "",
     bio: "",
-    website: "",
-    location: "",
-    socialLinks: {},
   });
 
   // Password form state
@@ -70,9 +67,6 @@ const Settings = () => {
         fullName: user.fullName || "",
         email: user.email || "",
         bio: user.bio || "",
-        website: user.website || "",
-        location: user.location || "",
-        socialLinks: user.socialLinks || {},
       });
     }
   }, [user]);
@@ -90,14 +84,14 @@ const Settings = () => {
     if (result.success) {
       setReadHistory(result.data);
     } else {
-      setMessage({ type: "error", text: result.message });
+      showMessage("error", result.message);
     }
     setIsLoading(false);
   };
 
   const showMessage = (type, text) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage({ type: "", text: "" }), 5000);
+    setTimeout(() => setMessage({ type: "", text: "" }), 5000); // Message disappears after 5 seconds
   };
 
   const handleProfileUpdate = async (e) => {
@@ -227,9 +221,11 @@ const Settings = () => {
   };
 
   const handleDeleteAccount = async () => {
+    // The confirmation is already handled inside the AuthContext's deleteAccount
     setIsLoading(true);
     try {
       await deleteAccount(user?._id);
+      // If successful, AuthContext will navigate, no need for local message
     } finally {
       setIsLoading(false);
     }
@@ -300,24 +296,24 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Message Display */}
+        {/* Message Display - Now a popup box */}
         {message.text && (
           <div
-            className={`mb-6 p-4 rounded-lg ${
+            className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center justify-between space-x-4 ${
               message.type === "success"
-                ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800"
-                : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800"
+                ? "bg-green-500 text-white"
+                : "bg-red-500 text-white"
             }`}
+            role="alert"
           >
-            <div className="flex items-center justify-between">
-              <span>{message.text}</span>
-              <button
-                onClick={() => setMessage({ type: "", text: "" })}
-                className="text-current hover:opacity-70"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <span>{message.text}</span>
+            <button
+              onClick={() => setMessage({ type: "", text: "" })}
+              className="p-1 rounded-full hover:bg-white hover:bg-opacity-20 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
@@ -383,38 +379,6 @@ const Settings = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Website
-                    </label>
-                    <input
-                      type="url"
-                      value={profileForm.website}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          website: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.location}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          location: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Username
                     </label>
                     <input
@@ -426,66 +390,6 @@ const Settings = () => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Username cannot be changed
                     </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Twitter
-                    </label>
-                    <input
-                      type="url"
-                      value={profileForm.socialLinks.twitter || ""}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          socialLinks: {
-                            ...profileForm.socialLinks,
-                            twitter: e.target.value,
-                          },
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                      placeholder="https://x.com/yourusername"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      LinkedIn
-                    </label>
-                    <input
-                      type="url"
-                      value={profileForm.socialLinks.linkedin || ""}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          socialLinks: {
-                            ...profileForm.socialLinks,
-                            linkedin: e.target.value,
-                          },
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                      placeholder="https://linkedin.com/in/yourusername"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      GitHub
-                    </label>
-                    <input
-                      type="url"
-                      value={profileForm.socialLinks.github || ""}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          socialLinks: {
-                            ...profileForm.socialLinks,
-                            github: e.target.value,
-                          },
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                      placeholder="https://github.com/yourusername"
-                    />
                   </div>
                 </div>
                 <div className="flex justify-end">

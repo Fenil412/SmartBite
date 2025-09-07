@@ -26,7 +26,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
     page: Number.parseInt(page),
     limit: Number.parseInt(limit),
     sort: { createdAt: -1 },
-    select: "-password -refreshToken",
+    select: "-password -refreshToken", // Now includes lastLogin implicitly through no exclusion
   }
 
   const users = await User.paginate(filter, options)
@@ -44,18 +44,20 @@ const getUserById = asyncHandler(async (req, res) => {
 
   const user = await User.findById(id)
     .select("-password -refreshToken")
-    .populate({
-      path: "blogs",
-      select: "title slug views likesCount createdAt",
-      options: { limit: 5, sort: { createdAt: -1 } },
-    })
+    .populate({ // Populate read history for admin view
+      path: "readHistory",
+      select: "title slug thumbnail createdAt",
+      options: { limit: 10, sort: { createdAt: -1 } } // Limit to 10 for overview
+    });
 
   if (!user) {
     throw new ApiError(404, "User not found")
   }
 
   const userData = {
-    ...user.toObject()
+    ...user.toObject(),
+    // Health profile details are already part of the user object
+    // primaryHealthGoal, dietaryPreferences, allergies are included by default
   }
 
   return res.status(200).json(new ApiResponse(200, userData, "User details fetched"))
@@ -64,7 +66,7 @@ const getUserById = asyncHandler(async (req, res) => {
 // Update user details (admin) - Fixed to handle fullName properly
 const updateUser = asyncHandler(async (req, res) => {
   const { id } = req.params
-  const { fullName, role, status, isVerified } = req.body
+  const { fullName, role, status, isVerified, primaryHealthGoal, dietaryPreferences, allergies } = req.body // Added health fields
 
   if (!mongoose.isValidObjectId(id)) {
     throw new ApiError(400, "Invalid user ID")
@@ -75,6 +77,9 @@ const updateUser = asyncHandler(async (req, res) => {
   if (role) updateData.role = role
   if (status) updateData.status = status
   if (isVerified !== undefined) updateData.isVerified = isVerified
+  if (primaryHealthGoal !== undefined) updateData.primaryHealthGoal = primaryHealthGoal;
+  if (dietaryPreferences !== undefined) updateData.dietaryPreferences = dietaryPreferences;
+  if (allergies !== undefined) updateData.allergies = allergies;
 
   // Add updatedAt timestamp
   updateData.updatedAt = new Date()
@@ -144,7 +149,7 @@ const getPlatformStats = asyncHandler(async (req, res) => {
     User.countDocuments(),
     User.countDocuments({ role: "admin" }),
     User.countDocuments({ status: "active" }),
-    User.countDocuments({ status: "suspended" })
+    User.countDocuments({ status: "suspended" }),
   ])
 
   const newUsers = await User.countDocuments({
@@ -158,7 +163,7 @@ const getPlatformStats = asyncHandler(async (req, res) => {
       active: activeUsers,
       suspended: suspendedUsers,
       new: newUsers,
-    }
+    },
   }
 
   return res.status(200).json(new ApiResponse(200, stats, "Platform stats fetched"))
@@ -193,6 +198,39 @@ const searchUsers = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, users, "Users search results"))
 })
 
+// Get a user's full read history (for admin)
+const getUserReadHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    throw new ApiError(400, "Invalid user ID");
+  }
+
+  const user = await User.findById(id)
+    .select("username fullName email readHistory")
+    .populate({
+      path: 'readHistory',
+      select: 'title slug thumbnail views createdAt',
+      // Assuming 'author' is still relevant for the history items,
+      // but if the `Blog` model is truly removed, this populate needs adjustment
+      // or removal if `readHistory` only stores basic blog info
+      // populate: { 
+      //   path: 'author',
+      //   select: 'username fullName avatar'
+      // },
+      options: { sort: { createdAt: -1 } } // No limit for full history
+    });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user.readHistory, `Read history for ${user.fullName} fetched`));
+});
+
+
 export {
   getAllUsers,
   getUserById,
@@ -201,4 +239,5 @@ export {
   getPlatformStats,
   searchUsers,
   toggleUserStatus,
+  getUserReadHistory, // Export the new function
 }

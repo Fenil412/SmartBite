@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUserPreferences } from "../contexts/UserPreferencesContext"; // Assuming you might use preferences for ingredient suggestions
+import Navbar from "../components/Navbar"; // Import the new Navbar component
 
 export default function ShoppingListPage() {
   const navigate = useNavigate();
@@ -81,16 +82,6 @@ export default function ShoppingListPage() {
     }
   }, [userPreferences, shoppingList.length]);
 
-  const sidebarItems = [
-    { name: "Home", icon: Home },
-    { name: "User Profile", icon: Users },
-    { name: "Preferences", icon: Settings },
-    { name: "AI Meal Plans", icon: ChefHat },
-    { name: "Shopping List", icon: ShoppingCart },
-    { name: "Meal History", icon: Brain },
-    { name: "Nutrition Tracker", icon: Heart },
-    { name: "AI Summary", icon: Target },
-  ];
 
   const handleAddItem = (e) => {
     e.preventDefault();
@@ -157,113 +148,15 @@ export default function ShoppingListPage() {
     return 0;
   });
 
-  // Keep "Shopping List" as active in sidebar
-  const activeSidebarItem = "Shopping List";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-blue-50">
-      {/* Mobile-first responsive layout */}
-      <div className="lg:flex">
-        {/* Vertical Sidebar - Hidden on mobile, visible on large screens */}
-        <aside className="hidden lg:flex w-64 bg-white/95 backdrop-blur-xl border-r border-pink-100/50 shadow-lg p-6 flex-col fixed top-0 left-0 h-full z-50">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-orange-400 rounded-2xl flex items-center justify-center shadow-lg">
-                <ChefHat className="w-7 h-7 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse"></div>
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent">
-                Smart Bite
-              </h3>
-              <p className="text-xs text-gray-500">AI Nutrition</p>
-            </div>
-          </div>
+      <Navbar /> {/* Integrated Navbar */}
 
-          <nav className="flex-1 space-y-4">
-            {sidebarItems.map((item, index) => (
-              <button
-                key={index}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all duration-200 ${
-                  activeSidebarItem === item.name
-                    ? "bg-gradient-to-r from-pink-100 to-orange-100 text-pink-700 font-bold shadow-md"
-                    : "text-gray-600 hover:bg-pink-50 hover:text-pink-500 font-medium"
-                }`}
-                onClick={() => {
-                  if (item.name === "Home") navigate("/");
-                  else if (item.name === "User Profile") navigate("/profile");
-                  else if (item.name === "Preferences") navigate("/preferences");
-                  else if (item.name === "Shopping List") navigate("/shopping-list");
-                  else if (item.name === "Nutrition Tracker") navigate("/nutrition-tracker");
-                }}>
-                <item.icon className="w-5 h-5" />
-                <span>{item.name}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* Sidebar Footer - User Profile/Logout */}
-          <div className="mt-auto pt-6 border-t border-pink-100">
-            <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition-colors font-medium">
-              <LogIn className="w-5 h-5" />
-              Sign Out
-            </button>
-          </div>
-        </aside>
-
-        {/* Main Content Area */}
-        <div className="flex-1 lg:ml-64">
-          {/* Mobile Header - Only visible on mobile */}
-          <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-pink-100/50 shadow-sm">
-            <div className="container mx-auto px-4">
-              <div className="flex h-16 items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-orange-400 rounded-xl flex items-center justify-center shadow-lg">
-                    <ChefHat className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent">Smart Bite</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => navigate("/signin")}
-                    className="px-3 py-1.5 text-gray-600 hover:text-pink-500 transition-colors font-medium rounded-lg hover:bg-pink-50 text-sm">
-                    Sign In
-                  </button>
-                  <button
-                    onClick={() => navigate("/signup")}
-                    className="px-4 py-1.5 bg-gradient-to-r from-pink-400 to-orange-400 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm">
-                    Start Free
-                  </button>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* Desktop Header - Only visible on large screens */}
-          <header className="hidden lg:block fixed top-0 right-0 w-[calc(100%-16rem)] z-50 bg-white/90 backdrop-blur-xl border-b border-pink-100/50 shadow-sm">
-            <div className="container mx-auto px-4">
-              <div className="flex h-16 items-center justify-end">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => navigate("/signin")}
-                    className="px-4 py-2 text-gray-600 hover:text-pink-500 transition-colors font-medium rounded-xl hover:bg-pink-50">
-                    <LogIn className="w-4 h-4 mr-1 inline" />
-                    Sign In
-                  </button>
-                  <button
-                    onClick={() => navigate("/signup")}
-                    className="px-6 py-2.5 bg-gradient-to-r from-pink-400 to-orange-400 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200">
-                    <UserPlus className="w-4 h-4 mr-1 inline" />
-                    Start Free
-                  </button>
-                </div>
-              </div>
-            </div>
-          </header>
-
+      {/* Main Content Area */}
+      <div className="flex-1 pt-16 lg:pt-24"> {/* Added padding top to account for fixed Navbar */}
           {/* Shopping List Page Content */}
-          <div className="flex min-h-screen items-start justify-center pt-16 lg:pt-24 p-4">
+          <div className="flex min-h-screen items-start justify-center p-4">
             <div className="w-full max-w-2xl space-y-8 rounded-3xl bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md animate-fade-in border border-pink-200">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-3 mb-4">
@@ -416,6 +309,6 @@ export default function ShoppingListPage() {
           </div>
         </div>
       </div>
-    </div></div>
+    </div>
   );
 }

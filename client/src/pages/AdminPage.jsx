@@ -152,6 +152,7 @@ const AdminPage = () => {
 
       // Update user details if we're currently viewing this user
       if (userDetails && userDetails._id === userId) {
+        // Find the updated user from the local state 'users' to ensure we have the latest data
         const updatedUser = users.find((user) => user._id === userId);
         if (updatedUser) {
           setUserDetails(updatedUser);
@@ -205,7 +206,7 @@ const AdminPage = () => {
 
       // Update user details if we're currently viewing this user
       if (userDetails && userDetails._id === editForm._id) {
-        setUserDetails(response.data);
+        setUserDetails(response.data.data); // Use response.data.data which is the updated user object
       }
 
       // Refresh platform stats after update
@@ -690,6 +691,17 @@ const AdminPage = () => {
                       </th>
                     </tr>
                   </thead>
+                  {/* Activity data will be rendered here if available */}
+                  <tbody>
+                    {/* Placeholder for activity data */}
+                    <tr>
+                      <td colSpan="4" className="text-center py-8">
+                        <p className="text-gray-500 dark:text-gray-400">
+                          No recent activity to display.
+                        </p>
+                      </td>
+                    </tr>
+                  </tbody>
                 </table>
               </div>
             </div>
