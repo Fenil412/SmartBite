@@ -134,7 +134,3 @@ This project is licensed under the MIT License.
 
 ```
 
----
-
-Do you also want me to craft a **2-min demo pitch script** (what you’ll say while showing live screens) so you’re 100% ready for hackathon judges?
-```
