@@ -145,5 +145,8 @@ This project is licensed under the MIT License.
 
 🚀 **Let’s make healthy eating smarter with AI! Contribute now!** 🚀
 
+
+This README provides a **detailed overview**, **setup guide**, and **contribution process** for developers who want to fork and enhance your **SmartBite** project. 🚀
+
 ```
 
