@@ -1,6 +1,8 @@
 # Python virtual environments
 venv/
 .venv/
+ENV/
+env/
 
 # Python cache
 __pycache__/
@@ -8,10 +10,55 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
 # Environment files
 .env
 .env.*
 *.env
 
-# Config files with secrets
+# Config / secrets
 config.json
+*.key
+*.pem
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE / editor settings
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Datasets / outputs (optional, uncomment if needed)
+# data/
+# *.csv
+# *.xlsx
+# *.h5
+# *.pkl
+# *.npz
+# *.npy
+
+# Gunicorn / Flask specific
+instance/
+*.pid
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
