@@ -1,10 +1,10 @@
 Flask==2.3.3
 Flask-CORS==4.0.0
-numpy==1.26.1
-pandas==2.2.2
-scikit-learn==1.5.2
+numpy
+pandas
+scikit-learn
 PuLP==2.7.0
 gunicorn==23.0.0
-opencv-python==4.8.1.78
-scipy==1.14.0
-gunicorn==23.2.0
+opencv-python
+scipy
+gunicorn
