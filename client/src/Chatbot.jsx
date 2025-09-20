@@ -78,7 +78,7 @@ export default function Chatbot({ darkMode }) {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:5000/api/chat/getMessages');
+        const response = await axios.get('${import.meta.env.CHAT_API_URL}/api/chat/getMessages');
         if (response.data.success) {
           const updatedMessages = response.data.messages.map(message => {
             if (message.sender === 'bot' && message.text.includes("Hello! I'm your AI meal planner")) {
@@ -140,8 +140,8 @@ export default function Chatbot({ darkMode }) {
     setIsLoading(true);
 
     try {
-      await axios.post('http://127.0.0.1:5000/api/chat/saveMessage', { message: input, sender: 'user', language });
-      const botResponse = await axios.post('http://127.0.0.1:5000/api/chat/generateResponse', { message: input, language });
+      await axios.post('${import.meta.env.CHAT_API_URL}/api/chat/saveMessage', { message: input, sender: 'user', language });
+      const botResponse = await axios.post('${import.meta.env.CHAT_API_URL}/api/chat/generateResponse', { message: input, language });
 
       const botMessage = { text: botResponse.data.message, sender: 'bot' };
       setIsTyping(true);
@@ -154,7 +154,7 @@ export default function Chatbot({ darkMode }) {
         setCurrentTypingMessage('');
       }, botMessage.text.length * 15 + 500);
 
-      await axios.post('http://127.0.0.1:5000/api/chat/saveMessage', { message: botMessage.text, sender: 'bot', language });
+      await axios.post('${import.meta.env.CHAT_API_URL}/api/chat/saveMessage', { message: botMessage.text, sender: 'bot', language });
     } catch (error) {
       console.error('Error during chat:', error);
       const errorMessage = {
