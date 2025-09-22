@@ -5,7 +5,7 @@ import { useToast } from "../components/ui/use-toast";
 
 // Configure axios defaults
 axios.defaults.baseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  import.meta.env.VITE_API_URL || "https://smart-bite-woad.vercel.app";
 axios.defaults.withCredentials = true; // Important for cookies
 axios.defaults.timeout = 10000;
 

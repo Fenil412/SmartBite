@@ -1,11 +1,15 @@
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
+import dotenv from "dotenv"
+dotenv.config({
+  path: './.env'
+})
 
 const app = express()
 
 const allowedOrigins = [
-  "http://localhost:5173"
+  process.env.CORS_ORIGIN || "https://smart-bite-woad.vercel.app"
 ];
 
 app.use(cors({
