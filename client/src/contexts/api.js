@@ -1,6 +1,6 @@
 // api.js
 import axios from "axios";
-import { getCurrentUser, refreshToken } from "./auth"; // adjust your imports
+import { getCurrentUser, refreshToken } from "./AuthContext"; // adjust your imports
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com",
