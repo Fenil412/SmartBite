@@ -10,7 +10,7 @@ app = Flask(__name__)
 # Correct CORS configuration - don't add headers elsewhere
 CORS(app, 
      supports_credentials=False, 
-     origins=["http://localhost:5173"],
+     origins=[os.getenv("VITE_API_URL")],
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "OPTIONS"])
 

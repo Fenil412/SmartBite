@@ -5,9 +5,10 @@ from rule_filtering import rule_filtering_bp
 from variety_clustering import variety_clustering_bp
 from content_filtering import content_filtering_bp
 from flask_cors import CORS
+import os 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/*": {"origins": os.getenv("VITE_API_URL")}})
 
 
 # Register all modules
