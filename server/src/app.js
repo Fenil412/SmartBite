@@ -9,7 +9,8 @@ dotenv.config({
 const app = express()
 
 const allowedOrigins = [
-  process.env.CORS_ORIGIN || "https://smart-bite-woad.vercel.app"
+  "http://localhost:5173",                     // local dev
+  "https://smart-bite-woad.vercel.app",        // deployed frontend
 ];
 
 app.use(cors({
@@ -17,11 +18,12 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error("Not allowed by CORS: " + origin));
     }
   },
-  credentials: true
+  credentials: true,
 }));
+
 
 
 app.use(express.json({ limit: "50mb" }))
