@@ -1,19 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+//import axios from "axios";
 import { useToast } from "../components/ui/use-toast";
-
+import { api } from "./api";
 // // Base URL will come from environment variable in local or Vercel
 // axios.defaults.baseURL =
 //   import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com";
 // axios.defaults.withCredentials = true; // Important for cookies
 // axios.defaults.timeout = 10000;
-
-axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com",
-  withCredentials: true, // important for login cookies
-  timeout: 10000,
-});
 
 const AuthContext = createContext();
 
@@ -33,7 +27,7 @@ export function AuthProvider({ children }) {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await axios.get("/api/v1/users/current-user");
+      const response = await api.get("/api/v1/users/current-user");
       if (response.data.success) {
         setUser(response.data.data);
       }
@@ -81,7 +75,7 @@ export function AuthProvider({ children }) {
         uploadData.append("coverImage", formData.coverImage);
       }
 
-      const response = await axios.post("/api/v1/users/register", uploadData, {
+      const response = await api.post("/api/v1/users/register", uploadData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -113,7 +107,7 @@ export function AuthProvider({ children }) {
       if (email) loginData.email = email;
       if (username) loginData.username = username;
 
-      const response = await axios.post("/api/v1/users/login", loginData);
+      const response = await api.post("/api/v1/users/login", loginData);
 
       if (response.data.data?.requiresOtp) {
         setRequiresOtp(true);
@@ -153,7 +147,7 @@ export function AuthProvider({ children }) {
     try {
       setLoading(true);
 
-      const response = await axios.post("/api/v1/users/verify-otp", {
+      const response = await api.post("/api/v1/users/verify-otp", {
         email: emailForOtp,
         otp,
       });
@@ -187,7 +181,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await axios.post("/api/v1/users/logout");
+      await api.post("/api/v1/users/logout");
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
@@ -200,7 +194,7 @@ export function AuthProvider({ children }) {
 
   const refreshToken = async () => {
     try {
-      const response = await axios.post("/api/v1/users/refresh-token");
+      const response = await api.post("/api/v1/users/refresh-token");
       return response.data.success;
     } catch (error) {
       console.error("Token refresh failed:", error);
@@ -211,7 +205,7 @@ export function AuthProvider({ children }) {
 
   const changePassword = async ({ oldPassword, newPassword }) => {
     try {
-      const response = await axios.post("/api/v1/users/change-password", {
+      const response = await api.post("/api/v1/users/change-password", {
         oldPassword,
         newPassword,
       });
@@ -238,7 +232,7 @@ export function AuthProvider({ children }) {
     socialLinks,
   }) => {
     try {
-      const response = await axios.patch("/api/v1/users/update-account", {
+      const response = await api.patch("/api/v1/users/update-account", {
         fullName,
         email,
         bio,
@@ -276,7 +270,7 @@ export function AuthProvider({ children }) {
     bloodGroup,
   }) => {
     try {
-      const response = await axios.patch("/api/v1/users/health-profile", {
+      const response = await api.patch("/api/v1/users/health-profile", {
         dateOfBirth,
         gender,
         height,
@@ -312,7 +306,7 @@ export function AuthProvider({ children }) {
       const formData = new FormData();
       formData.append("avatar", avatarFile);
 
-      const response = await axios.patch("/api/v1/users/avatar", formData, {
+      const response = await api.patch("/api/v1/users/avatar", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -344,15 +338,11 @@ export function AuthProvider({ children }) {
       const formData = new FormData();
       formData.append("coverImage", coverImageFile);
 
-      const response = await axios.patch(
-        "/api/v1/users/cover-image",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await api.patch("/api/v1/users/cover-image", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       if (response.data.success) {
         setUser(response.data.data);
@@ -378,7 +368,7 @@ export function AuthProvider({ children }) {
 
   const getReadHistory = async () => {
     try {
-      const response = await axios.get("/api/v1/users/read-history");
+      const response = await api.get("/api/v1/users/read-history");
 
       if (response.data.success) {
         return {
@@ -411,7 +401,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const response = await axios.delete(`/api/v1/users/delete/${userId}`);
+      const response = await api.delete(`/api/v1/users/delete/${userId}`);
 
       if (response.data.success) {
         toast({
@@ -445,28 +435,6 @@ export function AuthProvider({ children }) {
       }
     }
   };
-
-  // Setup axios interceptor for automatic token refresh
-  useEffect(() => {
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        if (error.response?.status === 401 && user) {
-          // Try to refresh token
-          const refreshed = await refreshToken();
-          if (refreshed) {
-            // Retry the original request
-            return axios.request(error.config);
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      axios.interceptors.response.eject(responseInterceptor);
-    };
-  }, [user]);
 
   const value = {
     user,
