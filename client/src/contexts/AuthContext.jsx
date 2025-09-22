@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useToast } from "../components/ui/use-toast";
 
-// Configure axios defaults
+// Base URL will come from environment variable in local or Vercel
 axios.defaults.baseURL =
   import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com";
 axios.defaults.withCredentials = true; // Important for cookies
