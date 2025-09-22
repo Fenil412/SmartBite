@@ -99,7 +99,6 @@ function App() {
   ];
 
   return (
-    console.log("Frontend API URL:", import.meta.env.VITE_API_URL),
     <UserPreferencesProvider>
       <div className="relative min-h-screen">
         <Routes location={location}>
