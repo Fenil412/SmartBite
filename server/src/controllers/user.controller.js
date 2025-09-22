@@ -207,8 +207,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
-    console.log("Incoming Refresh Token:", incomingRefreshToken); // Add this
-    console.log("Cookies received:", req.cookies); // Add this
+    
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized request")
     }
@@ -218,16 +217,12 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             incomingRefreshToken,
             process.env.REFRESH_TOKEN_SECRET
         )
-        console.log("Decoded Token:", decodedToken); // Add this
         const user = await User.findById(decodedToken?._id)
-        console.log("User found:", user?._id); // Add this
 
         if (!user) {
             throw new ApiError(401, "Invalid refresh token")
         }
-        console.log("User's stored Refresh Token:", user?.refreshToken); // Add this
         if (incomingRefreshToken !== user?.refreshToken) {
-            console.log("Incoming refresh token mismatch with stored token!"); // Add this
             throw new ApiError(401, "Refresh token is expired or used")
         }
 
@@ -249,7 +244,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
                 "Access token refreshed"
             ))
     } catch (error) {
-        console.error("Refresh token processing error:", error); // Add this
         throw new ApiError(401, error?.message || "Invalid refresh token")
     }
 })
