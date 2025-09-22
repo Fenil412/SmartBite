@@ -1,9 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
-//import axios from "axios";
 import { useToast } from "../components/ui/use-toast";
-import { api } from "./api";
-// // Base URL will come from environment variable in local or Vercel
+import api, { setAuthFunctions } from "./api"; // Import api and setAuthFunctions
+
+// // // Base URL will come from environment variable in local or Vercel
 // axios.defaults.baseURL =
 //   import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com";
 // axios.defaults.withCredentials = true; // Important for cookies
@@ -24,20 +30,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     checkAuthStatus();
   }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const response = await api.get("/api/v1/users/current-user");
-      if (response.data.success) {
-        setUser(response.data.data);
-      }
-    } catch (error) {
-      console.log("Not authenticated: " + error);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const register = async (formData) => {
     try {
@@ -179,7 +171,8 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = async () => {
+  // Memoize logout and refreshToken for stability and to prevent re-creation
+  const logout = useCallback(async () => {
     try {
       await api.post("/api/v1/users/logout");
     } catch (error) {
@@ -190,16 +183,44 @@ export function AuthProvider({ children }) {
       setEmailForOtp("");
       navigate("/signin");
     }
-  };
+  }, [navigate]);
 
-  const refreshToken = async () => {
+  const refreshToken = useCallback(async () => {
     try {
       const response = await api.post("/api/v1/users/refresh-token");
+      // Optionally update user data if the refresh token returns new user info
+      if (response.data.success && response.data.data) {
+        setUser(response.data.data.user); // Assuming new user data comes with refresh
+      }
       return response.data.success;
     } catch (error) {
       console.error("Token refresh failed:", error);
-      logout();
+      logout(); // Use the memoized logout
       return false;
+    }
+  }, [logout]);
+
+  // Check authentication status on app load
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  // Set the auth functions on initial render and whenever they change
+  useEffect(() => {
+    setAuthFunctions(refreshToken, logout);
+  }, [refreshToken, logout]);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await api.get("/api/v1/users/current-user");
+      if (response.data.success) {
+        setUser(response.data.data);
+      }
+    } catch (error) {
+      console.log("Not authenticated: " + error);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
