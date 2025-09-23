@@ -31,11 +31,11 @@ router.route("/register").post(
 
 router.route("/login").post(loginUser)
 router.route("/verify-otp").post(verifyOtp)
-router.route("/refresh-token").post(refreshAccessToken)
 
 // Secured routes (require authentication)
 router.use(verifyJWT)
 
+router.route("/refresh-token").post(refreshAccessToken)
 router.route("/logout").post(logoutUser)
 router.route("/change-password").post(changeCurrentPassword)
 router.route("/current-user").get(getCurrentUser)
