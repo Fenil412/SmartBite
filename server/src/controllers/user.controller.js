@@ -132,8 +132,8 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 
     return res.status(200).json(
-        new ApiResponse(200, { 
-            message: 'OTP sent to email', 
+        new ApiResponse(200, {
+            message: 'OTP sent to email',
             requiresOtp: true,
             email: user.email  // Sends back the user's email
         })
@@ -162,9 +162,9 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
     const options = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 10 * 60 * 1000 // 10 minutes
+        secure: true, // Always true in production
+        sameSite: "none", // <--- FIX
+        maxAge: 10 * 60 * 1000
     };
 
     await sendMail(
@@ -180,8 +180,8 @@ const verifyOtp = asyncHandler(async (req, res) => {
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options)
         .json(new ApiResponse(200, {
-            user: loggedInUser, 
-            accessToken, 
+            user: loggedInUser,
+            accessToken,
             refreshToken
         }, "OTP verified successfully"))
 })
@@ -207,7 +207,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
-    
+
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized request")
     }
@@ -228,8 +228,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
         const options = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict"
+            secure: true, // Always true in production
+            sameSite: "none" // <--- FIX
         }
 
         const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
