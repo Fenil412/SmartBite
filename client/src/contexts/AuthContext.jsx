@@ -7,13 +7,22 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/ui/use-toast";
-import api, { setAuthFunctions } from "./api"; // Import api and setAuthFunctions
+import axios from "axios"; // Import axios directly
 
 // // // Base URL will come from environment variable in local or Vercel
 // axios.defaults.baseURL =
 //   import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com";
 // axios.defaults.withCredentials = true; // Important for cookies
 // axios.defaults.timeout = 10000;
+
+// Create the Axios instance at the top
+const api = axios.create({
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    "https://smartbite-server-ay4k.onrender.com",
+  withCredentials: true, // Important for cookies
+  timeout: 30000, // Increased timeout
+});
 
 const AuthContext = createContext();
 
@@ -171,7 +180,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Memoize logout and refreshToken for stability and to prevent re-creation
+  // Memoize logout and refreshToken for stability
   const logout = useCallback(async () => {
     try {
       await api.post("/api/v1/users/logout");
@@ -188,33 +197,54 @@ export function AuthProvider({ children }) {
   const refreshToken = useCallback(async () => {
     try {
       const response = await api.post("/api/v1/users/refresh-token");
-      // Optionally update user data if the refresh token returns new user info
       if (response.data.success && response.data.data) {
-        setUser(response.data.data.user); // Assuming new user data comes with refresh
+        setUser(response.data.data.user);
       }
       return response.data.success;
     } catch (error) {
       console.error("Token refresh failed:", error);
-      logout(); // Use the memoized logout
+      // Use the logout function defined in this scope
+      await logout();
       return false;
     }
   }, [logout]);
 
-  // Check authentication status on app load
+  // This useEffect hook sets up the Axios interceptor.
+  // It runs only once when the component mounts.
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
+    const responseInterceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          try {
+            const refreshed = await refreshToken();
+            if (refreshed) {
+              return api.request(originalRequest);
+            }
+          } catch (refreshError) {
+            console.error("Token refresh failed in interceptor", refreshError);
+            await logout();
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
 
-  // Set the auth functions on initial render and whenever they change
-  useEffect(() => {
-    setAuthFunctions(refreshToken, logout);
+    // Cleanup function to remove the interceptor when the component unmounts
+    return () => {
+      api.interceptors.response.eject(responseInterceptor);
+    };
   }, [refreshToken, logout]);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       const response = await api.get("/api/v1/users/current-user");
       if (response.data.success) {
         setUser(response.data.data);
+      } else {
+        setUser(null);
       }
     } catch (error) {
       console.log("Not authenticated: " + error);
@@ -222,7 +252,11 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
   const changePassword = async ({ oldPassword, newPassword }) => {
     try {
