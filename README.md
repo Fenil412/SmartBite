@@ -40,9 +40,9 @@ SmartBite is a **full-stack web application** designed to generate **personalize
   - Flask / FastAPI (serving ML models as microservices)
   - `gunicorn` (for scalable deployment)
 
-## 🧠 ChatAI – Groq API Integration
+## 🧠 ChatAI – Grok API Integration
 
-The `chatAI` folder contains a **Flask microservice** that integrates with the **Groq AI API** to generate **personalized nutrition insights, meal explanations, and health tips**. This service acts as a smart assistant for users.
+The `chatAI` folder contains a **Flask microservice** that integrates with the **Grok AI API** to generate **personalized nutrition insights, meal explanations, and health tips**. This service acts as a smart assistant for users.
 
 ### 📂 Folder Structure
 ```
@@ -51,7 +51,7 @@ SmartBite/
 │── client/        # React + Tailwind frontend
 │── server/        # Node.js backend
 │── Models/        # Python ML models & optimization
-│── chatAI/        # Groq AI API integration (Flask)
+│── chatAI/        # Grok AI API integration (Flask)
 
 ````
 
@@ -70,12 +70,12 @@ source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#### 3️⃣ Add your Groq API key
+#### 3️⃣ Add your Grok API key
 
 Create a `.env` file inside `chatAI/`:
 
 ```
-GROQ_API_KEY=your_api_key_here
+GROK_API_KEY=your_api_key_here
 ```
 
 #### 4️⃣ Run the Flask service
