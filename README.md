@@ -9,7 +9,7 @@ SmartBite is a **full-stack web application** designed to generate **personalize
 - **Rule + ML Ranking**: Applies dietary restrictions and ranks meals via ML models.
 - **Variety via Clustering**: Ensures weekly plans aren’t repetitive using K-Means clustering.
 - **Optimized Meal Planning**: Solves constraints (calories, macros, cost) using OR-Tools / PuLP.
-- **AI Insights**: Groq AI API generates smart summaries and nutrition insights.
+- **AI Insights**: Grok AI API generates smart summaries and nutrition insights.
 - **Secure Auth & Profiles**: JWT-based login with custom diet preferences & history.
 - **Modern UI/UX**: Built with React + Tailwind for speed and clarity.
 
