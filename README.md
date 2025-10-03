@@ -9,7 +9,7 @@ SmartBite is a **full-stack web application** designed to generate **personalize
 - **Rule + ML Ranking**: Applies dietary restrictions and ranks meals via ML models.
 - **Variety via Clustering**: Ensures weekly plans aren’t repetitive using K-Means clustering.
 - **Optimized Meal Planning**: Solves constraints (calories, macros, cost) using OR-Tools / PuLP.
-- **AI Insights**: Grok AI API generates smart summaries and nutrition insights.
+- **AI Insights**: Groq AI API generates smart summaries and nutrition insights.
 - **Secure Auth & Profiles**: JWT-based login with custom diet preferences & history.
 - **Modern UI/UX**: Built with React + Tailwind for speed and clarity.
 
@@ -40,9 +40,9 @@ SmartBite is a **full-stack web application** designed to generate **personalize
   - Flask / FastAPI (serving ML models as microservices)
   - `gunicorn` (for scalable deployment)
 
-## 🧠 ChatAI – Grok API Integration
+## 🧠 ChatAI – Groq API Integration
 
-The `chatAI` folder contains a **Flask microservice** that integrates with the **Grok AI API** to generate **personalized nutrition insights, meal explanations, and health tips**. This service acts as a smart assistant for users.
+The `chatAI` folder contains a **Flask microservice** that integrates with the **Groq AI API** to generate **personalized nutrition insights, meal explanations, and health tips**. This service acts as a smart assistant for users.
 
 ### 📂 Folder Structure
 ```
@@ -51,7 +51,7 @@ SmartBite/
 │── client/        # React + Tailwind frontend
 │── server/        # Node.js backend
 │── Models/        # Python ML models & optimization
-│── chatAI/        # Grok AI API integration (Flask)
+│── chatAI/        # Groq AI API integration (Flask)
 
 ````
 
@@ -70,12 +70,12 @@ source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#### 3️⃣ Add your Grok API key
+#### 3️⃣ Add your Groq API key
 
 Create a `.env` file inside `chatAI/`:
 
 ```
-GROK_API_KEY=your_api_key_here
+GROQ_API_KEY=your_api_key_here
 ```
 
 #### 4️⃣ Run the Flask service
