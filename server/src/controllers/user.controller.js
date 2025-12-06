@@ -92,7 +92,7 @@ const registerUser = asyncHandler(async (req, res) => {
     // Send welcome email
     await sendMail(
         email,
-        "Welcome to Blogging Platform",
+        "Welcome to SmartBite",
         `<h3>Hello ${fullName},</h3>
         <p>Welcome to our community! Your account has been successfully created.</p>
         <p>Start exploring and sharing your thoughts with the world!</p>`
