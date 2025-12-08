@@ -1,520 +1,627 @@
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js"
-import { User } from "../models/user.model.js"
-import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js"
+// src/controllers/user.controller.js
+
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+
+import { User } from "../models/user.model.js";
+import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import jwt from "jsonwebtoken"
-import { sendMail } from "../utils/mailer.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-const otpStore = {};
+// Cloudinary util (uses your provided file)
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-const generateAccessAndRefreshTokens = async (userId) => {
-    try {
-        const user = await User.findById(userId)
-        const accessToken = user.generateAccessToken()
-        const refreshToken = user.generateRefreshToken()
+// -------------------- CONSTANTS --------------------
 
-        user.refreshToken = refreshToken;
-        user.lastLogin = new Date();
-        await user.save({ validateBeforeSave: false })
+const ACCESS_TOKEN_EXPIRY = "15m";
+const REFRESH_TOKEN_EXPIRY = "7d";
+const PASSWORD_EXPIRY_DAYS = 30;
+const PASSWORD_REMINDER_DAYS_BEFORE = 5;
+const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
-        return { accessToken, refreshToken }
+// -------------------- HELPERS --------------------
 
-    } catch (error) {
-        throw new ApiError(500, "Something went wrong while generating tokens")
-    }
-}
+// Dynamic import for mailer to avoid "does not provide an export named 'sendMail'"
+const getMailSender = async () => {
+  const mailerModule = await import("../utils/mailer.js").catch((err) => {
+    console.error("Error importing mailer util:", err);
+    return {};
+  });
 
+  const fn =
+    mailerModule.sendMail ||
+    mailerModule.mailSender ||
+    mailerModule.default;
+
+  if (typeof fn !== "function") {
+    console.warn(
+      "Mailer util not configured correctly (no sendMail/mailSender/default export function). " +
+        "Emails will be skipped."
+    );
+    // No-op function to avoid breaking flow
+    return async () => {};
+  }
+
+  return fn;
+};
+
+const generateTokens = (user) => {
+  const payload = {
+    _id: user._id,
+    role: user.role,
+    tokenVersion: user.tokenVersion || 0,
+  };
+
+  const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY,
+  });
+
+  const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRY,
+  });
+
+  return { accessToken, refreshToken };
+};
+
+const addActivity = async (user, action, metadata = {}) => {
+  if (!user.activityHistory) {
+    user.activityHistory = [];
+  }
+
+  user.activityHistory.push({
+    action,
+    metadata,
+    createdAt: new Date(),
+  });
+
+  // Keep last N entries to avoid huge docs
+  const MAX_HISTORY = 100;
+  if (user.activityHistory.length > MAX_HISTORY) {
+    user.activityHistory = user.activityHistory.slice(-MAX_HISTORY);
+  }
+};
+
+const getSafeUser = (user) => {
+  const obj = user.toObject ? user.toObject() : { ...user };
+  delete obj.password;
+  delete obj.refreshToken;
+  delete obj.passwordResetOtp;
+  delete obj.passwordResetOtpExpiresAt;
+  return obj;
+};
+
+// -------------------- CONTROLLERS --------------------
+
+/**
+ * Signup / Register
+ * - Create user
+ * - Set password expiry 30 days
+ * - Send welcome email
+ * - Generate access + refresh tokens
+ */
 const registerUser = asyncHandler(async (req, res) => {
-    const { fullName, email, username, password, bio, role, primaryHealthGoal, dietaryPreferences, allergies } = req.body
+  const { fullName, email, password, ...rest } = req.body;
 
-    if ([fullName, email, username, password].some(field => !field || field.trim() === "")) {
-        throw new ApiError(400, "All required fields must be provided")
-    }
+  if (!fullName || !email || !password) {
+    throw new ApiError(400, "fullName, email and password are required");
+  }
 
-    if (username.length < 3 || username.length > 20) {
-        throw new ApiError(400, "Username must be between 3-20 characters")
-    }
+  const normalizedEmail = email.toLowerCase().trim();
 
-    if (password.length < 8) {
-        throw new ApiError(400, "Password must be at least 8 characters")
-    }
+  const existedUser = await User.findOne({ email: normalizedEmail });
+  if (existedUser) {
+    throw new ApiError(409, "User already exists with this email");
+  }
 
-    const existedUser = await User.findOne({ $or: [{ username }, { email }] })
-    if (existedUser) {
-        throw new ApiError(409, "User with email or username already exists")
-    }
+  const now = new Date();
 
-    const avatarLocalPath = req.files?.avatar[0]?.path;
-    if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is required")
-    }
+  const user = await User.create({
+    fullName,
+    email: normalizedEmail,
+    password, // assume hashing in User model pre-save hook
+    tokenVersion: 0,
+    passwordChangedAt: now,
+    passwordExpiresAt: new Date(now.getTime() + PASSWORD_EXPIRY_DAYS * MS_IN_DAY),
+    ...rest,
+  });
 
-    let coverImageLocalPath;
-    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
-        coverImageLocalPath = req.files.coverImage[0].path
-    }
+  await addActivity(user, "REGISTER", {});
+  await user.save({ validateBeforeSave: false });
 
-    // Upload to Cloudinary and get public_id
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
-    const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
-
-    if (!avatar || !avatar.public_id) {
-        throw new ApiError(400, "Failed to upload avatar")
-    }
-
-    const user = await User.create({
-        fullName,
-        email,
-        password,
-        username: username.toLowerCase(),
-        bio: bio || "",
-        role: role || "user", // Default to 'user' if not provided
-        avatar: {
-            url: avatar.url,
-            public_id: avatar.public_id
-        },
-        coverImage: coverImage ? {
-            url: coverImage.url,
-            public_id: coverImage.public_id
-        } : null,
-        // New fields
-        primaryHealthGoal: primaryHealthGoal || "",
-        dietaryPreferences: dietaryPreferences || [],
-        allergies: allergies || []
-    })
-
-    const createdUser = await User.findById(user._id).select("-password -refreshToken")
-    if (!createdUser) {
-        throw new ApiError(500, "Failed to register user")
-    }
-
-    // Send welcome email
+  // Send welcome email (non-blocking for main flow)
+  try {
+    const sendMail = await getMailSender();
     await sendMail(
-        email,
-        "Welcome to SmartBite",
-        `<h3>Hello ${fullName},</h3>
-        <p>Welcome to our community! Your account has been successfully created.</p>
-        <p>Start exploring and sharing your thoughts with the world!</p>`
+      user.email,
+      "Welcome to SmartBite",
+      `Hi ${user.fullName || ""},\n\nYour SmartBite account has been created successfully.\n\nRegards,\nSmartBite`
     );
+  } catch (err) {
+    console.error("Error sending signup email:", err);
+  }
 
-    return res.status(201).json(
-        new ApiResponse(201, createdUser, "User registered successfully")
+  const { accessToken, refreshToken } = generateTokens(user);
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  const safeUser = getSafeUser(user);
+
+  return res.status(201).json(
+    new ApiResponse(
+      201,
+      {
+        user: safeUser,
+        tokens: { accessToken, refreshToken },
+      },
+      "User registered successfully"
     )
-})
-
-const loginUser = asyncHandler(async (req, res) => {
-    const { email, username, password } = req.body
-
-    if (!username && !email) {
-        throw new ApiError(400, "Username or email is required")
-    }
-
-    const user = await User.findOne({ $or: [{ username }, { email }] })
-    if (!user) {
-        throw new ApiError(404, "User does not exist")
-    }
-
-    const isPasswordValid = await user.isPasswordCorrect(password)
-    if (!isPasswordValid) {
-        throw new ApiError(401, "Invalid credentials")
-    }
-
-    // Generate and send OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[user.email] = otp;  // Stores OTP with user's email
-
-    await sendMail(
-        user.email,
-        "Your Login OTP",
-        `Your one-time login code is: <strong>${otp}</strong><br>
-        <p>This code will expire in 10 minutes.</p>`
-    );
-
-    return res.status(200).json(
-        new ApiResponse(200, {
-            message: 'OTP sent to email',
-            requiresOtp: true,
-            email: user.email  // Sends back the user's email
-        })
-    )
-})
-
-const verifyOtp = asyncHandler(async (req, res) => {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-        throw new ApiError(400, "Email and OTP are required");
-    }
-
-    if (otpStore[email] !== otp) {
-        throw new ApiError(400, "Invalid or expired OTP");
-    }
-
-    delete otpStore[email];
-    const user = await User.findOne({ email });
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
-
-    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
-    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
-
-    const options = {
-        httpOnly: true,
-        secure: true, // Always true in production
-        sameSite: "none", // <--- FIX
-        maxAge: 10 * 60 * 1000
-    };
-
-    await sendMail(
-        email,
-        "Login Successful",
-        `<h3>Hello ${user.fullName},</h3>
-        <p>You've successfully logged in to your account.</p>
-        <p>If this wasn't you, please contact support immediately.</p>`
-    );
-
-    return res
-        .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
-        .json(new ApiResponse(200, {
-            user: loggedInUser,
-            accessToken,
-            refreshToken
-        }, "OTP verified successfully"))
-})
-
-const logoutUser = asyncHandler(async (req, res) => {
-    await User.findByIdAndUpdate(
-        req.user._id,
-        { $unset: { refreshToken: 1 } },
-        { new: true }
-    )
-
-    const options = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production"
-    }
-
-    return res
-        .status(200)
-        .clearCookie("accessToken", options)
-        .clearCookie("refreshToken", options)
-        .json(new ApiResponse(200, {}, "User logged out"))
-})
-
-const refreshAccessToken = asyncHandler(async (req, res) => {
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
-
-    if (!incomingRefreshToken) {
-        throw new ApiError(401, "Unauthorized request")
-    }
-
-    try {
-        const decodedToken = jwt.verify(
-            incomingRefreshToken,
-            process.env.REFRESH_TOKEN_SECRET
-        )
-        const user = await User.findById(decodedToken?._id)
-
-        if (!user) {
-            throw new ApiError(401, "Invalid refresh token")
-        }
-        if (incomingRefreshToken !== user?.refreshToken) {
-            throw new ApiError(401, "Refresh token is expired or used")
-        }
-
-        const options = {
-            httpOnly: true,
-            secure: true, // Always true in production
-            sameSite: "none" // <--- FIX
-        }
-
-        const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
-
-        return res
-            .status(200)
-            .cookie("accessToken", accessToken, options)
-            .cookie("refreshToken", refreshToken, options)
-            .json(new ApiResponse(
-                200,
-                { accessToken, refreshToken },
-                "Access token refreshed"
-            ))
-    } catch (error) {
-        throw new ApiError(401, error?.message || "Invalid refresh token")
-    }
-})
-
-const changeCurrentPassword = asyncHandler(async (req, res) => {
-    const { oldPassword, newPassword } = req.body
-
-    if (!oldPassword || !newPassword) {
-        throw new ApiError(400, "Both passwords are required")
-    }
-
-    if (newPassword.length < 8) {
-        throw new ApiError(400, "New password must be at least 8 characters")
-    }
-
-    if (oldPassword === newPassword) {
-        throw new ApiError(400, "New password must be different from the old password")
-    }
-
-    const user = await User.findById(req.user?._id)
-    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
-
-    if (!isPasswordCorrect) {
-        throw new ApiError(400, "Invalid current password")
-    }
-
-    user.password = newPassword
-    await user.save({ validateBeforeSave: false })
-
-    await sendMail(
-        user.email,
-        "Password Changed",
-        `<h3>Password Update Notification</h3>
-        <p>Your password was successfully changed on ${new Date().toLocaleString()}.</p>
-        <p>If you didn't make this change, please contact support immediately.</p>`
-    );
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, {}, "Password changed successfully"))
-})
-
-const getCurrentUser = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user._id)
-        .select("-password -refreshToken")
-        .populate({
-            path: 'readHistory',
-            select: 'title slug thumbnail createdAt',
-            options: { limit: 5, sort: { createdAt: -1 } }
-        });
-
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "Current user fetched"))
-})
-
-const updateAccountDetails = asyncHandler(async (req, res) => {
-    const { fullName, email, bio, location } = req.body
-
-    if (!fullName || !email) {
-        throw new ApiError(400, "Full name and email are required")
-    }
-
-    const updateData = {
-        fullName,
-        email,
-        bio: bio || "",
-        location: location || "",
-    }
-
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        { $set: updateData },
-        { new: true, runValidators: true } // Run validators for email
-    ).select("-password -refreshToken")
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "Account details updated"))
-})
-
-const updateUserProfileHealthDetails = asyncHandler(async (req, res) => {
-    const { primaryHealthGoal, dietaryPreferences, allergies } = req.body;
-
-    const updateFields = {};
-    if (primaryHealthGoal !== undefined) updateFields.primaryHealthGoal = primaryHealthGoal;
-    if (dietaryPreferences !== undefined) updateFields.dietaryPreferences = dietaryPreferences;
-    if (allergies !== undefined) updateFields.allergies = allergies;
-
-    // Check if any fields are provided for update
-    if (Object.keys(updateFields).length === 0) {
-        throw new ApiError(400, "No health-related fields provided for update");
-    }
-
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        { $set: updateFields },
-        { new: true, runValidators: true } // Run validators for enum types
-    ).select("-password -refreshToken");
-
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "User health profile updated successfully"));
+  );
 });
 
+/**
+ * Login
+ * - Validate credentials
+ * - Check password expiry
+ * - Generate access + refresh tokens
+ * - Send login email
+ * - Add activity
+ */
+const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
 
-const updateUserAvatar = asyncHandler(async (req, res) => {
-    const avatarLocalPath = req.file?.path
+  if (!email || !password) {
+    throw new ApiError(400, "email and password are required");
+  }
 
-    if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is required")
-    }
+  const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await User.findById(req.user._id)
-    if (!user) {
-        throw new ApiError(404, "User not found")
-    }
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+password +tokenVersion +refreshToken +passwordExpiresAt"
+  );
 
-    // Delete old avatar from Cloudinary if exists
-    if (user.avatar?.public_id) {
-        await deleteFromCloudinary(user.avatar.public_id)
-    }
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
-    // Upload new avatar
-    const newAvatar = await uploadOnCloudinary(avatarLocalPath)
-    if (!newAvatar || !newAvatar.public_id) {
-        throw new ApiError(500, "Failed to upload avatar")
-    }
-
-    // Update user
-    user.avatar = {
-        url: newAvatar.url,
-        public_id: newAvatar.public_id
-    }
-    await user.save({ validateBeforeSave: false })
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "Avatar updated"))
-})
-
-const updateUserCoverImage = asyncHandler(async (req, res) => {
-    const coverImageLocalPath = req.file?.path
-
-    if (!coverImageLocalPath) {
-        throw new ApiError(400, "Cover image file is required")
-    }
-
-    const user = await User.findById(req.user._id)
-    if (!user) {
-        throw new ApiError(404, "User not found")
-    }
-
-    // Delete old cover image from Cloudinary if exists
-    if (user.coverImage?.public_id) {
-        await deleteFromCloudinary(user.coverImage.public_id)
-    }
-
-    // Upload new cover image
-    const newCoverImage = await uploadOnCloudinary(coverImageLocalPath)
-    if (!newCoverImage || !newCoverImage.public_id) {
-        throw new ApiError(500, "Failed to upload cover image")
-    }
-
-    // Update user
-    user.coverImage = {
-        url: newCoverImage.url,
-        public_id: newCoverImage.public_id
-    }
-    await user.save({ validateBeforeSave: false })
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "Cover image updated"))
-})
-
-const deleteUser = asyncHandler(async (req, res) => {
-    const userId = req.params.id || req.user._id;
-    const currentUser = req.user;
-
-    // Admin can delete any user, users can delete themselves
-    if (currentUser.role !== 'admin' && currentUser._id.toString() !== userId) {
-        throw new ApiError(403, "Unauthorized to delete this account")
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-        throw new ApiError(404, "User not found")
-    }
-
-    // Delete assets from Cloudinary
-    if (user.avatar?.public_id) {
-        await deleteFromCloudinary(user.avatar.public_id)
-    }
-    if (user.coverImage?.public_id) {
-        await deleteFromCloudinary(user.coverImage.public_id)
-    }
-
-    // Delete user from database
-    await User.findByIdAndDelete(userId)
-
-    // Send notification email
-    await sendMail(
-        user.email,
-        "Account Deleted",
-        `<h3>Account Closure Notification</h3>
-        <p>Your account has been successfully deleted.</p>
-        <p>We're sorry to see you go. If this was a mistake, contact support within 7 days.</p>`
+  if (typeof user.isPasswordCorrect !== "function") {
+    throw new ApiError(
+      500,
+      "User model is missing isPasswordCorrect method for password comparison"
     );
+  }
 
-    // If user deleted themselves, clear cookies
-    if (currentUser._id.toString() === userId) {
-        const options = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production"
-        }
-        return res
-            .status(200)
-            .clearCookie("accessToken", options)
-            .clearCookie("refreshToken", options)
-            .json(new ApiResponse(200, {}, "Account deleted successfully"))
+  const isPasswordValid = await user.isPasswordCorrect(password);
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid email or password");
+  }
+
+  const now = new Date();
+  if (user.passwordExpiresAt && user.passwordExpiresAt < now) {
+    throw new ApiError(403, "Password expired. Please reset your password via OTP.");
+  }
+
+  const { accessToken, refreshToken } = generateTokens(user);
+  user.refreshToken = refreshToken;
+
+  await addActivity(user, "LOGIN", { ip: req.ip });
+  await user.save({ validateBeforeSave: false });
+
+  // Send login mail (non-blocking)
+  try {
+    const sendMail = await getMailSender();
+    await sendMail(
+      user.email,
+      "New SmartBite login",
+      `Hi ${user.fullName || ""},\n\nYou just logged in to your SmartBite account.\nIf this wasn't you, please reset your password immediately.\n\nRegards,\nSmartBite`
+    );
+  } catch (err) {
+    console.error("Error sending login email:", err);
+  }
+
+  const safeUser = getSafeUser(user);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        user: safeUser,
+        tokens: { accessToken, refreshToken },
+      },
+      "Login successful"
+    )
+  );
+});
+
+/**
+ * Logout
+ * - Invalidate refresh token via tokenVersion bump
+ * - Clear stored refreshToken
+ * - Add activity
+ */
+const logoutUser = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  user.refreshToken = null;
+
+  await addActivity(user, "LOGOUT", { ip: req.ip });
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Logout successful"));
+});
+
+/**
+ * Refresh Access Token
+ * - Use refresh token to get new access + refresh
+ * - Check tokenVersion for invalidation
+ */
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingToken =
+    req.body?.refreshToken ||
+    req.cookies?.refreshToken ||
+    req.headers["x-refresh-token"];
+
+  if (!incomingToken) {
+    throw new ApiError(401, "Refresh token is required");
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(incomingToken, process.env.REFRESH_TOKEN_SECRET);
+  } catch (err) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  const user = await User.findById(decoded._id).select(
+    "+tokenVersion +refreshToken"
+  );
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (user.tokenVersion !== decoded.tokenVersion) {
+    throw new ApiError(401, "Refresh token has been invalidated");
+  }
+
+  if (!user.refreshToken || user.refreshToken !== incomingToken) {
+    throw new ApiError(401, "Refresh token mismatch");
+  }
+
+  const { accessToken, refreshToken } = generateTokens(user);
+  user.refreshToken = refreshToken;
+
+  await addActivity(user, "REFRESH_TOKEN", {});
+  await user.save({ validateBeforeSave: false });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { accessToken, refreshToken },
+      "Access token refreshed successfully"
+    )
+  );
+});
+
+/**
+ * Request OTP for password reset
+ * - Generates OTP
+ * - Stores OTP + expiry on user
+ * - Sends email
+ * - Adds activity
+ */
+const requestPasswordOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "email is required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const otp = (Math.floor(100000 + Math.random() * 900000)).toString(); // 6-digit
+  const now = new Date();
+
+  user.passwordResetOtp = otp;
+  user.passwordResetOtpExpiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 min
+  await addActivity(user, "REQUEST_PASSWORD_OTP", {});
+  await user.save({ validateBeforeSave: false });
+
+  try {
+    const sendMail = await getMailSender();
+    await sendMail(
+      user.email,
+      "SmartBite Password Reset OTP",
+      `Hi ${user.fullName || ""},\n\nYour OTP for password reset is: ${otp}\nThis OTP is valid for 10 minutes.\n\nIf you did not request this, please ignore this mail.\n\nRegards,\nSmartBite`
+    );
+  } catch (err) {
+    console.error("Error sending password OTP email:", err);
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "OTP sent to registered email"));
+});
+
+/**
+ * Reset password using OTP
+ * - Validates OTP + expiry
+ * - Updates password
+ * - Sets new password expiry (30 days)
+ * - Invalidates all tokens (tokenVersion++)
+ * - Sends confirmation email
+ * - Adds activity
+ */
+const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    throw new ApiError(400, "email, otp, and newPassword are required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+passwordResetOtp +passwordResetOtpExpiresAt +tokenVersion"
+  );
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (
+    !user.passwordResetOtp ||
+    !user.passwordResetOtpExpiresAt ||
+    user.passwordResetOtp !== otp
+  ) {
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  const now = new Date();
+  if (user.passwordResetOtpExpiresAt < now) {
+    throw new ApiError(400, "OTP has expired");
+  }
+
+  // Update password, expiry, and invalidate tokens
+  user.password = newPassword; // assume hashing in pre-save
+  user.passwordChangedAt = now;
+  user.passwordExpiresAt = new Date(now.getTime() + PASSWORD_EXPIRY_DAYS * MS_IN_DAY);
+  user.passwordResetOtp = null;
+  user.passwordResetOtpExpiresAt = null;
+
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  user.refreshToken = null;
+
+  await addActivity(user, "RESET_PASSWORD_OTP", {});
+  await user.save();
+
+  // Email confirmation
+  try {
+    const sendMail = await getMailSender();
+    await sendMail(
+      user.email,
+      "SmartBite password changed",
+      `Hi ${user.fullName || ""},\n\nYour SmartBite password was changed successfully.\nIf you did not perform this action, please contact support immediately.\n\nRegards,\nSmartBite`
+    );
+  } catch (err) {
+    console.error("Error sending password changed email:", err);
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Password reset successfully"));
+});
+
+/**
+ * Send password expiry reminders (for CRON / admin route)
+ * - Finds users with password expiring in [now, now+5 days]
+ * - Sends reminder mail
+ * - Marks that reminder was sent
+ */
+const sendPasswordExpiryReminders = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const reminderUpperBound = new Date(
+    now.getTime() + PASSWORD_REMINDER_DAYS_BEFORE * MS_IN_DAY
+  );
+
+  const users = await User.find({
+    passwordExpiresAt: { $gte: now, $lte: reminderUpperBound },
+    passwordExpiryReminderSent: { $ne: true },
+  });
+
+  const sendMail = await getMailSender();
+
+  for (const user of users) {
+    try {
+      await sendMail(
+        user.email,
+        "SmartBite password expiry reminder",
+        `Hi ${user.fullName || ""},\n\nYour SmartBite password will expire on ${
+          user.passwordExpiresAt?.toDateString?.() || user.passwordExpiresAt
+        }.\nPlease update your password to continue secure access.\n\nRegards,\nSmartBite`
+      );
+
+      user.passwordExpiryReminderSent = true;
+      await addActivity(user, "PASSWORD_EXPIRY_REMINDER_SENT", {});
+      await user.save({ validateBeforeSave: false });
+    } catch (err) {
+      console.error(
+        `Error sending password expiry reminder to ${user.email}:`,
+        err
+      );
     }
+  }
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, {}, "User account deleted"))
-})
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { count: users.length },
+      "Password expiry reminder job executed"
+    )
+  );
+});
 
+/**
+ * Get current user's profile
+ */
+const getMe = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
 
-const getReadHistory = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user._id)
-        .populate({
-            path: 'readHistory',
-            select: 'title slug thumbnail views createdAt',
-            populate: {
-                path: 'author',
-                select: 'username fullName avatar'
-            },
-            options: { sort: { createdAt: -1 }, limit: 20 }
-        })
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized");
+  }
 
-    if (!user) {
-        throw new ApiError(404, "User not found")
-    }
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user.readHistory, "Read history fetched"))
-})
+  const safeUser = getSafeUser(user);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, safeUser, "User profile fetched"));
+});
+
+/**
+ * Update avatar using Cloudinary
+ * - Uses multer middleware for file upload (req.file)
+ */
+const updateAvatar = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  if (!req.file || !req.file.path) {
+    throw new ApiError(400, "Avatar file is required");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const uploadResult = await uploadOnCloudinary(req.file.path);
+
+  if (!uploadResult || !uploadResult.secure_url) {
+    throw new ApiError(500, "Failed to upload avatar to Cloudinary");
+  }
+
+  user.avatar = {
+    publicId: uploadResult.public_id,
+    url: uploadResult.secure_url,
+  };
+
+  await addActivity(user, "UPDATE_AVATAR", {
+    avatarUrl: user.avatar.url,
+  });
+
+  await user.save({ validateBeforeSave: false });
+
+  const safeUser = getSafeUser(user);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, safeUser, "Avatar updated successfully"));
+});
+
+/**
+ * Delete profile (soft delete recommended)
+ * - Mark as deleted
+ * - Invalidate tokens
+ * - Send mail
+ * - Add activity
+ */
+const deleteMyProfile = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  user.isDeleted = true;
+  user.deletedAt = new Date();
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  user.refreshToken = null;
+
+  await addActivity(user, "DELETE_PROFILE", {});
+  await user.save({ validateBeforeSave: false });
+
+  try {
+    const sendMail = await getMailSender();
+    await sendMail(
+      user.email,
+      "SmartBite account deleted",
+      `Hi ${user.fullName || ""},\n\nYour SmartBite account has been deleted.\nIf this wasn't you, please contact support immediately.\n\nRegards,\nSmartBite`
+    );
+  } catch (err) {
+    console.error("Error sending account deletion email:", err);
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Profile deleted successfully"));
+});
+
+/**
+ * Get activity history of current user
+ */
+const getMyActivityHistory = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const user = await User.findById(userId, { activityHistory: 1 });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { activityHistory: user.activityHistory || [] },
+      "Activity history fetched"
+    )
+  );
+});
+
+// -------------------- EXPORTS --------------------
 
 export {
-    registerUser,
-    loginUser,
-    logoutUser,
-    verifyOtp,
-    refreshAccessToken,
-    changeCurrentPassword,
-    getCurrentUser,
-    updateAccountDetails,
-    updateUserProfileHealthDetails, // Export the new controller
-    updateUserAvatar,
-    deleteUser,
-    generateAccessAndRefreshTokens,
-    updateUserCoverImage,
-    getReadHistory
-}
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  requestPasswordOtp,
+  resetPasswordWithOtp,
+  sendPasswordExpiryReminders,
+  getMe,
+  updateAvatar,
+  deleteMyProfile,
+  getMyActivityHistory,
+};

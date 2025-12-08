@@ -1,16 +1,17 @@
-export const isAdmin = (req, res, next) => {
-    if (req.user && req.user.role === 'admin') {
+import { ApiError } from "../utils/ApiError.js";
+
+const roleMiddleware = (...allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            throw new ApiError(401, "Authentication required");
+        }
+
+        if (!allowedRoles.includes(req.user.role)) {
+            throw new ApiError(403, "Access denied");
+        }
+
         next();
-    } else {
-        res.status(403).json({ message: 'Access denied. Admin role required.' });
-    }
+    };
 };
 
-export const isUser = (req, res, next) => {
-    if (req.user && (req.user.role === 'user' || req.user.role === 'admin')) {
-        next();
-    } else {
-        res.status(403).json({ message: 'Access denied. User role required.' });
-    }
-};
-
+export default roleMiddleware;

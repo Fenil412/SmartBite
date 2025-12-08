@@ -1,181 +1,192 @@
-import mongoose, { Schema } from "mongoose";
-import jwt from "jsonwebtoken"
-import bcrypt from "bcrypt"
-import mongoosePaginate from "mongoose-paginate-v2";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import validator from "validator";
+import uniqueValidator from "mongoose-unique-validator";
 
-const userSchema = new Schema(
+const PASSWORD_MIN_LENGTH = 8;
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 30;
+
+/* ===========================
+   PROFILE SUB-SCHEMA
+=========================== */
+const ProfileSchema = new mongoose.Schema(
     {
-        username: {
+        age: { type: Number, min: 0 },
+        heightCm: { type: Number, min: 0 },
+        weightKg: { type: Number, min: 0 },
+        gender: { type: String, enum: ["male", "female", "other"], default: "other" },
+        activityLevel: {
             type: String,
-            required: true,
-            unique: true,
-            lowercase: true,
-            trim: true,
-            index: true
+            enum: ["sedentary", "light", "moderate", "active", "very_active"]
         },
+        goal: {
+            type: String,
+            enum: ["fat_loss", "muscle_gain", "maintenance"]
+        },
+
+        dietaryPreferences: { type: [String], default: [] },
+        dietaryRestrictions: { type: [String], default: [] },
+        allergies: { type: [String], default: [] },
+
+        medicalNotes: { type: String, default: "" }
+    },
+    { _id: false }
+);
+
+/* ===========================
+   USER SCHEMA
+=========================== */
+const UserSchema = new mongoose.Schema(
+    {
         email: {
             type: String,
-            required: true,
+            required: [true, "Email required"],
             unique: true,
             lowercase: true,
             trim: true,
             validate: {
-                validator: function (v) {
-                    return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v);
-                },
-                message: props => `${props.value} is not a valid email!`
+                validator: (v) => validator.isEmail(v),
+                message: "Invalid email format"
             }
         },
-        fullName: {
+
+        username: {
+            type: String,
+            required: [true, "Username required"],
+            unique: true,
+            trim: true,
+            minlength: [USERNAME_MIN_LENGTH, `Min length ${USERNAME_MIN_LENGTH}`],
+            maxlength: [USERNAME_MAX_LENGTH, `Max length ${USERNAME_MAX_LENGTH}`],
+            validate: {
+                validator: (v) => /^[a-zA-Z0-9._-]+$/.test(v),
+                message: "Username may contain letters, numbers, dot, underscore, hyphen"
+            }
+        },
+
+        passwordHash: {
             type: String,
             required: true,
+            select: false
+        },
+
+        name: { type: String, trim: true, default: "" },
+        phone: {
+            type: String,
             trim: true,
-            index: true
-        },
-        bio: {
-            type: String,
-            default: "",
-            trim: true,
-            maxlength: 200
-        },
-        avatar: {
-            url: String,
-            public_id: String
-        },
-        coverImage: {
-            url: String,
-            public_id: String
-        },
-        password: {
-            type: String,
-            required: [true, 'Password is required'],
-            minlength: [8, 'Password must be at least 8 characters long']
-        },
-        role: {
-            type: String,
-            enum: ['user', 'admin'],
-            default: 'user'
-        },
-        refreshToken: {
-            type: String
-        },
-        isVerified: {
-            type: Boolean,
-            default: false
-        },
-        lastLogin: {
-            type: Date
-        },
-        status: {
-            type: String,
-            enum: ['active', 'suspended', 'pending'],
-            default: 'active'
-        },
-        location: {
-            type: String,
-            trim: true
-        },
-        // New Field: Primary Health Goal
-        primaryHealthGoal: {
-            type: String,
-            enum: [
-                "Weight Loss",
-                "Muscle Gain",
-                "Healthy Eating",
-                "Improved Fitness",
-                "Stress Reduction",
-                "Better Sleep",
-                "Boost Energy",
-                "Manage Chronic Conditions",
-                "" // Allow empty string for optional selection
-            ],
-            default: ""
-        },
-        // New Field: Dietary Preferences
-        dietaryPreferences: {
-            type: [String], // Array of strings
-            enum: [
-                "Vegetarian",
-                "Vegan",
-                "Keto",
-                "Paleo",
-                "Mediterranean",
-                "Gluten-Free",
-                "Dairy-Free",
-                "Halal",
-                "Kosher"
-            ],
-            default: []
-        },
-        // New Field: Allergies
-        allergies: {
-            type: [String], // Array of strings
-            enum: [
-                "Peanuts",
-                "Tree Nuts",
-                "Milk",
-                "Eggs",
-                "Soy",
-                "Wheat",
-                "Fish",
-                "Shellfish",
-                "Sesame"
-            ],
-            default: []
-        },
-    },
-    {
-        timestamps: true,
-        toJSON: {
-            virtuals: true,
-            transform: function (doc, ret) {
-                delete ret.password;
-                delete ret.refreshToken;
-                return ret;
+            validate: {
+                validator: (v) => !v || validator.isMobilePhone(v, "any"),
+                message: "Invalid phone number"
             }
         },
-        toObject: {
-            virtuals: true
+
+        locale: { type: String, default: "en-US" },
+        timezone: { type: String, default: "UTC" },
+        isVerified: { type: Boolean, default: false },
+        roles: { type: [String], default: ["user"] },
+
+        preferences: {
+            units: { type: String, enum: ["metric", "imperial"], default: "metric" },
+            budgetTier: { type: String, enum: ["low", "medium", "high"], default: "medium" },
+            preferredCuisines: { type: [String], default: [] }
+        },
+
+        refreshToken: { type: String, select: false },
+        lastActiveAt: { type: Date },
+
+        profile: { type: ProfileSchema, default: {} },
+
+        favoriteMeals: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meal" }],
+        planHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Plan" }]
+    },
+    { timestamps: true }
+);
+
+UserSchema.plugin(uniqueValidator, { message: "{PATH} already exists" });
+
+/* ===========================
+   VIRTUAL PASSWORD
+=========================== */
+UserSchema.virtual("password")
+    .set(function (plain) {
+        this._plainPassword = plain;
+    })
+    .get(function () {
+        return this._plainPassword;
+    });
+
+/* ===========================
+   PASSWORD VALIDATION
+=========================== */
+function isStrongPassword(pw) {
+    if (!pw || pw.length < PASSWORD_MIN_LENGTH) return false;
+    if (!/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw)) return false;
+    return true;
+}
+
+UserSchema.pre("validate", function (next) {
+    if (this.isNew || this._plainPassword) {
+        if (!this._plainPassword) {
+            this.invalidate("password", "Password required");
+            return next(new Error("Password required"));
+        }
+
+        if (!isStrongPassword(this._plainPassword)) {
+            this.invalidate(
+                "password",
+                `Password must be ${PASSWORD_MIN_LENGTH}+ chars with letters & numbers`
+            );
+            return next(new Error("Weak password"));
         }
     }
-)
+    next();
+});
 
-userSchema.plugin(mongoosePaginate);
-
-userSchema.pre("save", async function (next) {
-    if (!this.isModified("password")) return next();
-
-    // Increase salt rounds for better security
-    this.password = await bcrypt.hash(this.password, 12)
-    next()
-})
-
-userSchema.methods.isPasswordCorrect = async function (password) {
-    return await bcrypt.compare(password, this.password)
-}
-
-userSchema.methods.generateAccessToken = function () {
-    return jwt.sign(
-        {
-            _id: this._id,
-            email: this.email,
-            username: this.username,
-            fullName: this.fullName,
-            role: this.role
-        },
-        process.env.ACCESS_TOKEN_SECRET,
-        {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '15m'
+/* ===========================
+   HASH BEFORE SAVE
+=========================== */
+UserSchema.pre("save", async function (next) {
+    try {
+        if (this._plainPassword) {
+            const salt = await bcrypt.genSalt(10);
+            this.passwordHash = await bcrypt.hash(this._plainPassword, salt);
+            this._plainPassword = undefined;
         }
-    )
-}
+        if (!this.lastActiveAt) this.lastActiveAt = new Date();
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
 
-userSchema.methods.generateRefreshToken = function () {
-    return jwt.sign(
-        { _id: this._id },
-        process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
-    )
-}
+/* ===========================
+   METHODS
+=========================== */
+UserSchema.methods.verifyPassword = async function (plain) {
+    return bcrypt.compare(plain, this.passwordHash);
+};
 
-export const User = mongoose.model("User", userSchema)
+UserSchema.methods.toPublic = function () {
+    return {
+        id: this._id,
+        email: this.email,
+        username: this.username,
+        name: this.name,
+        locale: this.locale,
+        timezone: this.timezone,
+        isVerified: this.isVerified,
+        roles: this.roles,
+        preferences: this.preferences,
+        profile: this.profile
+    };
+};
+
+/* ===========================
+   INDEXES
+=========================== */
+UserSchema.index({ "profile.goal": 1 });
+
+/* ===========================
+   EXPORT (NAMED EXPORT)
+=========================== */
+export const User = mongoose.model("User", UserSchema);

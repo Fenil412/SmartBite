@@ -1,55 +1,54 @@
 import { Router } from "express";
+
+/* ========== Controllers (MUST MATCH EXPORTS EXACTLY) ========== */
 import {
+    registerUser,
     loginUser,
     logoutUser,
-    registerUser,
-    verifyOtp,
     refreshAccessToken,
-    changeCurrentPassword,
-    getCurrentUser,
-    deleteUser,
-    updateUserAvatar,
-    updateUserCoverImage,
-    getReadHistory,
-    updateAccountDetails,
-    updateUserProfileHealthDetails // Import the new controller function
+
+    requestPasswordOtp,
+    resetPasswordWithOtp,
+
+    getMe,
+    updateAvatar,
+    deleteMyProfile,
+    getMyActivityHistory,
 } from "../controllers/user.controller.js";
-import { upload } from "../middlewares/multer.middleware.js"
-import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
 
-const router = Router()
+/* ========== Middlewares ========== */
+import authMiddleware from "../middlewares/auth.middleware.js";
+import upload from "../middlewares/multer.middleware.js";
 
-// Public routes
-router.route("/register").post(
-    upload.fields([
-        { name: "avatar", maxCount: 1 },
-        { name: "coverImage", maxCount: 1 }
-    ]),
-    registerUser
-)
+const router = Router();
 
-router.route("/login").post(loginUser)
-router.route("/verify-otp").post(verifyOtp)
+/* ================= AUTH ================= */
 
-// Secured routes (require authentication)
-router.use(verifyJWT)
+router.post("/signup", registerUser);
+router.post("/login", loginUser);
+router.post("/logout", authMiddleware, logoutUser);
+router.post("/refresh-token", refreshAccessToken);
 
-router.route("/refresh-token").post(refreshAccessToken)
-router.route("/logout").post(logoutUser)
-router.route("/change-password").post(changeCurrentPassword)
-router.route("/current-user").get(getCurrentUser)
-router.route("/update-account").patch(updateAccountDetails)
-router.route("/read-history").get(getReadHistory)
+/* ================= PASSWORD (OTP FLOW) ================= */
 
-// New route for updating health profile
-router.route("/health-profile").patch(updateUserProfileHealthDetails);
+router.post("/password/request-otp", requestPasswordOtp);
+router.post("/password/reset", resetPasswordWithOtp);
 
-// Avatar and cover image routes
-router.route("/avatar").patch(upload.single("avatar"), updateUserAvatar)
-router.route("/cover-image").patch(upload.single("coverImage"), updateUserCoverImage)
+/* ================= USER PROFILE ================= */
 
-// Admin routes
-router.route("/delete/:id").delete(isAdmin, deleteUser)
+router.get("/me", authMiddleware, getMe);
 
-export default router
+router.put(
+    "/avatar",
+    authMiddleware,
+    upload.single("avatar"),
+    updateAvatar
+);
+
+router.delete("/me", authMiddleware, deleteMyProfile);
+
+/* ================= USER ACTIVITY ================= */
+
+router.get("/activity", authMiddleware, getMyActivityHistory);
+
+export default router;
