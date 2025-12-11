@@ -8,41 +8,51 @@ const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 30;
 
 /* ===========================
-   PROFILE SUB-SCHEMA
+   SUB-SCHEMAS
 =========================== */
+
+// 1. Profile Schema (Physical & Goals)
 const ProfileSchema = new mongoose.Schema(
     {
-        age: { type: Number, min: 0 },
-        heightCm: { type: Number, min: 0 },
-        weightKg: { type: Number, min: 0 },
+        age: { type: Number, min: 0, required: true },
+        heightCm: { type: Number, min: 0, required: true },
+        weightKg: { type: Number, min: 0, required: true },
         gender: { type: String, enum: ["male", "female", "other"], default: "other" },
         activityLevel: {
             type: String,
-            enum: ["sedentary", "light", "moderate", "active", "very_active"]
+            enum: ["sedentary", "light", "moderate", "active", "very_active"],
+            required: true
         },
         goal: {
             type: String,
-            enum: ["fat_loss", "muscle_gain", "maintenance"]
+            enum: ["fat_loss", "muscle_gain", "maintenance"],
+            required: true
         },
-
         dietaryPreferences: { type: [String], default: [] },
         dietaryRestrictions: { type: [String], default: [] },
         allergies: { type: [String], default: [] },
-
         medicalNotes: { type: String, default: "" }
     },
     { _id: false }
 );
+
+// 2. Activity History Schema (For security logging)
+const ActivitySchema = new mongoose.Schema({
+    action: { type: String, required: true },
+    metadata: { type: Object, default: {} },
+    createdAt: { type: Date, default: Date.now }
+}, { _id: false });
 
 /* ===========================
    USER SCHEMA
 =========================== */
 const UserSchema = new mongoose.Schema(
     {
+        // --- Identity ---
         email: {
             type: String,
             required: [true, "Email required"],
-            unique: true,
+            unique: true, // This automatically creates an index!
             lowercase: true,
             trim: true,
             validate: {
@@ -50,11 +60,10 @@ const UserSchema = new mongoose.Schema(
                 message: "Invalid email format"
             }
         },
-
         username: {
             type: String,
             required: [true, "Username required"],
-            unique: true,
+            unique: true, // This automatically creates an index!
             trim: true,
             minlength: [USERNAME_MIN_LENGTH, `Min length ${USERNAME_MIN_LENGTH}`],
             maxlength: [USERNAME_MAX_LENGTH, `Max length ${USERNAME_MAX_LENGTH}`],
@@ -63,14 +72,14 @@ const UserSchema = new mongoose.Schema(
                 message: "Username may contain letters, numbers, dot, underscore, hyphen"
             }
         },
-
-        passwordHash: {
+        password: {
             type: String,
             required: true,
             select: false
         },
 
-        name: { type: String, trim: true, default: "" },
+        // --- Personal Details ---
+        name: { type: String, trim: true, required: true },
         phone: {
             type: String,
             trim: true,
@@ -79,25 +88,51 @@ const UserSchema = new mongoose.Schema(
                 message: "Invalid phone number"
             }
         },
+        avatar: {
+            publicId: { type: String },
+            url: { type: String }
+        },
 
+        // --- System & Security ---
+        roles: { type: [String], default: ["user"] },
+        isVerified: { type: Boolean, default: false },
         locale: { type: String, default: "en-US" },
         timezone: { type: String, default: "UTC" },
-        isVerified: { type: Boolean, default: false },
-        roles: { type: [String], default: ["user"] },
 
+        tokenVersion: { type: Number, default: 0 },
+        refreshToken: { type: String, select: false },
+
+        // Password Management
+        passwordChangedAt: { type: Date },
+        passwordExpiresAt: { type: Date },
+        passwordExpiryReminderSent: { type: Boolean, default: false },
+
+        passwordResetOtp: { type: String, select: false },
+        passwordResetOtpExpiresAt: { type: Date, select: false },
+
+        // --- App Preferences ---
         preferences: {
             units: { type: String, enum: ["metric", "imperial"], default: "metric" },
             budgetTier: { type: String, enum: ["low", "medium", "high"], default: "medium" },
             preferredCuisines: { type: [String], default: [] }
         },
 
-        refreshToken: { type: String, select: false },
-        lastActiveAt: { type: Date },
-
-        profile: { type: ProfileSchema, default: {} },
+        // --- Core Application Data ---
+        profile: {
+            type: ProfileSchema,
+            required: [true, "Profile details are compulsory"]
+        },
 
         favoriteMeals: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meal" }],
-        planHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Plan" }]
+        planHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Plan" }],
+
+        // --- Logging ---
+        activityHistory: { type: [ActivitySchema], default: [] },
+        lastActiveAt: { type: Date },
+
+        // --- Soft Delete ---
+        isDeleted: { type: Boolean, default: false },
+        deletedAt: { type: Date }
     },
     { timestamps: true }
 );
@@ -107,9 +142,10 @@ UserSchema.plugin(uniqueValidator, { message: "{PATH} already exists" });
 /* ===========================
    VIRTUAL PASSWORD
 =========================== */
-UserSchema.virtual("password")
+UserSchema.virtual("plainPassword")
     .set(function (plain) {
         this._plainPassword = plain;
+        this.password = plain;
     })
     .get(function () {
         return this._plainPassword;
@@ -126,17 +162,15 @@ function isStrongPassword(pw) {
 
 UserSchema.pre("validate", function (next) {
     if (this.isNew || this._plainPassword) {
-        if (!this._plainPassword) {
+        if (this.isNew && !this._plainPassword && !this.password) {
             this.invalidate("password", "Password required");
-            return next(new Error("Password required"));
         }
 
-        if (!isStrongPassword(this._plainPassword)) {
+        if (this._plainPassword && !isStrongPassword(this._plainPassword)) {
             this.invalidate(
                 "password",
                 `Password must be ${PASSWORD_MIN_LENGTH}+ chars with letters & numbers`
             );
-            return next(new Error("Weak password"));
         }
     }
     next();
@@ -147,12 +181,15 @@ UserSchema.pre("validate", function (next) {
 =========================== */
 UserSchema.pre("save", async function (next) {
     try {
-        if (this._plainPassword) {
-            const salt = await bcrypt.genSalt(10);
-            this.passwordHash = await bcrypt.hash(this._plainPassword, salt);
-            this._plainPassword = undefined;
-        }
-        if (!this.lastActiveAt) this.lastActiveAt = new Date();
+        if (!this.isModified("password")) return next();
+
+        if (!this.password) return next(new Error("Password required"));
+
+        this.password = await bcrypt.hash(
+            this.password,
+            Number(process.env.BCRYPT_SALT_ROUNDS) || 10
+        );
+
         next();
     } catch (err) {
         next(err);
@@ -162,8 +199,8 @@ UserSchema.pre("save", async function (next) {
 /* ===========================
    METHODS
 =========================== */
-UserSchema.methods.verifyPassword = async function (plain) {
-    return bcrypt.compare(plain, this.passwordHash);
+UserSchema.methods.isPasswordCorrect = async function (plain) {
+    return bcrypt.compare(plain, this.password);
 };
 
 UserSchema.methods.toPublic = function () {
@@ -172,6 +209,7 @@ UserSchema.methods.toPublic = function () {
         email: this.email,
         username: this.username,
         name: this.name,
+        avatar: this.avatar,
         locale: this.locale,
         timezone: this.timezone,
         isVerified: this.isVerified,
@@ -184,9 +222,12 @@ UserSchema.methods.toPublic = function () {
 /* ===========================
    INDEXES
 =========================== */
+// FIXED: Removed duplicate indexes for email and username.
+// `unique: true` in the schema already handles them.
+
 UserSchema.index({ "profile.goal": 1 });
 
 /* ===========================
-   EXPORT (NAMED EXPORT)
+   EXPORT
 =========================== */
 export const User = mongoose.model("User", UserSchema);
