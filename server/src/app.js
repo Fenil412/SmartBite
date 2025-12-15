@@ -36,10 +36,16 @@ import userRouter from './routes/user.routes.js'
 import healthcheckRouter from "./routes/healthcheck.routes.js";
 import mealRouter from "./routes/meal.routes.js";
 import mealPlanRouter from "./routes/mealPlan.routes.js";
+import recommendationRouter from "./routes/recommendation.routes.js";
+import feedbackRouter from "./routes/feedback.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/meals", mealRouter);
 app.use("/api/v1/meal-plans", mealPlanRouter);
+app.use("/api/v1/recommendations", recommendationRouter);
+app.use("/api/v1/feedback", feedbackRouter);
+app.use("/api/v1/notifications", notificationRoutes);
 
 export { app }

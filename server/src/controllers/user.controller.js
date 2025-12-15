@@ -6,17 +6,14 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js"; // Importing the object { success, fail }
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  notifySignup,
+  notifyLogin,
+  notifyPasswordOtp,
+  notifyPasswordChanged,
+  notifyPasswordExpiry
+} from "../services/notification.service.js";
 
-// Dynamic import for mailer
-const getMailSender = async () => {
-  try {
-    const mailerModule = await import("../utils/mailer.js");
-    return mailerModule.sendMail;
-  } catch (err) {
-    console.warn("Error importing mailer util:", err.message);
-    return async () => { };
-  }
-};
 
 // -------------------- CONSTANTS --------------------
 const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || "15m";
@@ -111,12 +108,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // Send Email (Corrected: passing object)
   try {
-    const sendMail = await getMailSender();
-    await sendMail({
-      to: user.email,
-      subject: "Welcome to SmartBite",
-      text: `Hi ${user.name},\n\nYour SmartBite account has been created successfully.\n\nRegards,\nSmartBite`
-    });
+    await notifySignup(user);
   } catch (err) {
     console.error("Error sending signup email:", err);
   }
@@ -169,12 +161,7 @@ const loginUser = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   try {
-    const sendMail = await getMailSender();
-    await sendMail({
-      to: user.email,
-      subject: "New SmartBite login",
-      text: `Hi ${user.name},\n\nYou just logged in to your SmartBite account.\nIf this wasn't you, please reset your password immediately.\n\nRegards,\nSmartBite`
-    });
+    await notifyLogin(user);
   } catch (err) {
     console.error("Error sending login email:", err);
   }
@@ -275,12 +262,7 @@ const requestPasswordOtp = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   try {
-    const sendMail = await getMailSender();
-    await sendMail({
-      to: user.email,
-      subject: "SmartBite Password Reset OTP",
-      text: `Hi ${user.name},\n\nYour OTP for password reset is: ${otp}\nThis OTP is valid for 10 minutes.\n\nRegards,\nSmartBite`
-    });
+    await notifyPasswordOtp(user, otp);
   } catch (err) {
     console.error("Error sending password OTP email:", err);
   }
@@ -327,12 +309,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res) => {
   await user.save();
 
   try {
-    const sendMail = await getMailSender();
-    await sendMail({
-      to: user.email,
-      subject: "SmartBite password changed",
-      text: `Hi ${user.name},\n\nYour SmartBite password was changed successfully.\nRegards,\nSmartBite`
-    });
+    await notifyPasswordChanged(user);
   } catch (err) {
     console.error("Error sending password changed email:", err);
   }
@@ -350,17 +327,12 @@ const sendPasswordExpiryReminders = asyncHandler(async (req, res) => {
     isDeleted: false
   });
 
-  const sendMail = await getMailSender();
+
   let count = 0;
 
   for (const user of users) {
     try {
-      await sendMail({
-        to: user.email,
-        subject: "SmartBite password expiry reminder",
-        text: `Hi ${user.name},\n\nYour SmartBite password will expire on ${user.passwordExpiresAt}.\nPlease update it soon.\n\nRegards,\nSmartBite`
-      });
-
+      await notifyPasswordExpiry(user, user.passwordExpiresAt);
       user.passwordExpiryReminderSent = true;
       await addActivity(user, "PASSWORD_EXPIRY_REMINDER_SENT", {});
       await user.save({ validateBeforeSave: false });
