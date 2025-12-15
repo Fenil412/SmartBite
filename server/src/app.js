@@ -40,6 +40,18 @@ import recommendationRouter from "./routes/recommendation.routes.js";
 import feedbackRouter from "./routes/feedback.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 
+// src/app.js
+import { startWeeklySummaryCron } from "./services/cron/weeklySummary.cron.js";
+import { retryFailedNotifications } from "./workers/notification.retry.js";
+
+// start cron
+startWeeklySummaryCron();
+retryFailedNotifications();
+
+// retry every 5 minutes
+setInterval(retryFailedNotifications, 5 * 60 * 1000);
+
+
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/meals", mealRouter);

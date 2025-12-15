@@ -106,12 +106,9 @@ const registerUser = asyncHandler(async (req, res) => {
   await addActivity(user, "REGISTER", {});
   await user.save({ validateBeforeSave: false });
 
-  // Send Email (Corrected: passing object)
-  try {
-    await notifySignup(user);
-  } catch (err) {
-    console.error("Error sending signup email:", err);
-  }
+
+  await notifySignup(user);
+
 
   const { accessToken, refreshToken } = generateTokens(user);
   user.refreshToken = refreshToken;
@@ -160,11 +157,9 @@ const loginUser = asyncHandler(async (req, res) => {
   await addActivity(user, "LOGIN", { ip: req.ip });
   await user.save({ validateBeforeSave: false });
 
-  try {
-    await notifyLogin(user);
-  } catch (err) {
-    console.error("Error sending login email:", err);
-  }
+
+  await notifyLogin(user);
+
 
   const safeUser = getSafeUser(user);
 
@@ -261,11 +256,9 @@ const requestPasswordOtp = asyncHandler(async (req, res) => {
   await addActivity(user, "REQUEST_PASSWORD_OTP", {});
   await user.save({ validateBeforeSave: false });
 
-  try {
-    await notifyPasswordOtp(user, otp);
-  } catch (err) {
-    console.error("Error sending password OTP email:", err);
-  }
+
+  await notifyPasswordOtp(user, otp);
+
 
   return ApiResponse.success(res, { message: "OTP sent to registered email" }, 200);
 });
@@ -308,11 +301,9 @@ const resetPasswordWithOtp = asyncHandler(async (req, res) => {
   await addActivity(user, "RESET_PASSWORD_OTP", {});
   await user.save();
 
-  try {
-    await notifyPasswordChanged(user);
-  } catch (err) {
-    console.error("Error sending password changed email:", err);
-  }
+
+  await notifyPasswordChanged(user);
+
 
   return ApiResponse.success(res, { message: "Password reset successfully" }, 200);
 });

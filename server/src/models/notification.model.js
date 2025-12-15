@@ -11,21 +11,24 @@ const NotificationSchema = new mongoose.Schema(
 
         event: {
             type: String,
-            required: true
+            required: true,
+            index: true
         },
 
-        channel: {
-            type: String,
-            enum: ["email", "sms"],
-            default: "email"
+        channels: {
+            email: {
+                status: { type: String, enum: ["success", "failed"], default: "failed" },
+                error: String
+            },
+            sms: {
+                status: { type: String, enum: ["success", "failed"], default: "failed" },
+                error: String
+            }
         },
 
-        title: String,
-        message: String,
-
-        meta: {
+        payload: {
             type: Object,
-            default: {}
+            required: true
         },
 
         status: {
@@ -34,11 +37,20 @@ const NotificationSchema = new mongoose.Schema(
             default: "pending"
         },
 
-        error: String
+        attempts: {
+            type: Number,
+            default: 0
+        },
+
+        lastError: {
+            type: String
+        },
+
+        sentAt: Date
     },
     { timestamps: true }
 );
 
-NotificationSchema.index({ user: 1, createdAt: -1 });
+NotificationSchema.index({ status: 1, createdAt: 1 });
 
 export const Notification = mongoose.model("Notification", NotificationSchema);

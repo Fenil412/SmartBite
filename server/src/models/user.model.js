@@ -123,6 +123,20 @@ const UserSchema = new mongoose.Schema(
             required: [true, "Profile details are compulsory"]
         },
 
+        notificationPreferences: {
+            email: { type: Boolean, default: true },
+            sms: { type: Boolean, default: true },
+
+            events: {
+                signup: { type: Boolean, default: true },
+                login: { type: Boolean, default: true },
+                password: { type: Boolean, default: true },
+                mealPlan: { type: Boolean, default: true },
+                weeklySummary: { type: Boolean, default: true }
+            }
+        },
+
+
         favoriteMeals: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meal" }],
         planHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Plan" }],
 

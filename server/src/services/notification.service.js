@@ -1,90 +1,152 @@
+// src/services/notification.service.js
 import { Notification } from "../models/notification.model.js";
 import { NOTIFICATION_EVENTS } from "../utils/notificationEvents.js";
+import { sendMail } from "../utils/mailer.js";
+import { sendSMS } from "../utils/sms.js";
 
-// dynamic import to avoid circular deps
-const getMailer = async () => {
-    const module = await import("../utils/mailer.js");
-    return module.sendMail;
-};
+const MAX_ATTEMPTS = 3;
 
-export const sendNotification = async ({
+export const dispatchNotification = async ({
     user,
     event,
-    title,
-    message,
-    meta = {},
-    channel = "email"
+    emailPayload,
+    smsPayload
 }) => {
-    const notification = await Notification.create({
+    const log = await Notification.create({
         user: user._id,
         event,
-        title,
-        message,
-        meta,
-        channel
+        payload: { emailPayload, smsPayload },
+        status: "pending",
+        attempts: 1,
+        channels: {
+            email: { status: "failed" },
+            sms: { status: "failed" }
+        }
     });
 
-    try {
-        if (channel === "email") {
-            const sendMail = await getMailer();
-            await sendMail({
-                to: user.email,
-                subject: title,
-                text: message
-            });
-        }
+    let emailSuccess = false;
+    let smsSuccess = false;
 
-        notification.status = "sent";
-        await notification.save();
+    /* ---------- EMAIL ---------- */
+    try {
+        if (user.notificationPreferences?.email !== false && emailPayload?.to) {
+            await sendMail(emailPayload);
+            log.channels.email.status = "success";
+            emailSuccess = true;
+        }
     } catch (err) {
-        notification.status = "failed";
-        notification.error = err.message;
-        await notification.save();
+        log.channels.email.error = err.message;
+        console.error("Email send failed:", err.message);
     }
 
-    return notification;
+    /* ---------- SMS ---------- */
+    try {
+        if (
+            user.notificationPreferences?.sms !== false &&
+            user.phone &&
+            process.env.TWILIO_ACCOUNT_SID &&
+            process.env.TWILIO_AUTH_TOKEN
+        ) {
+            const res = await sendSMS(smsPayload);
+            log.channels.sms.status = "success";
+            smsSuccess = true;
+        } else {
+            console.warn("SMS skipped: missing phone or Twilio credentials");
+        }
+    } catch (err) {
+        log.channels.sms.error = err.message;
+        console.error("SMS send failed:", err.message);
+    }
+
+    /* ---------- FINAL STATUS ---------- */
+    if (emailSuccess || smsSuccess) {
+        log.status = "sent";
+        log.sentAt = new Date();
+    } else {
+        log.status = "failed";
+    }
+
+    await log.save();
+
+    // ⚠️ NEVER throw → login/signup must not fail because SMS failed
+    return { email: emailSuccess, sms: smsSuccess };
 };
 
-/* ===========================
-   EVENT HELPERS
-=========================== */
+
+/* ========= EVENT HELPERS ========= */
 
 export const notifySignup = (user) =>
-    sendNotification({
+    dispatchNotification({
         user,
         event: NOTIFICATION_EVENTS.USER_SIGNUP,
-        title: "Welcome to SmartBite",
-        message: `Hi ${user.name},\n\nWelcome to SmartBite! Your journey to smarter nutrition starts now.`
+        emailPayload: {
+            to: user.email,
+            subject: "Welcome to SmartBite",
+            text: `Hi ${user.name}, welcome to SmartBite!`
+        },
+        smsPayload: {
+            to: user.phone,
+            message: "Welcome to SmartBite! Your journey starts now."
+        }
     });
 
-export const notifyLogin = (user, ip) =>
-    sendNotification({
+export const notifyLogin = (user) =>
+    dispatchNotification({
         user,
         event: NOTIFICATION_EVENTS.USER_LOGIN,
-        title: "New Login Detected",
-        message: `Hi ${user.name},\n\nA new login was detected from IP: ${ip}`
+        emailPayload: {
+            to: user.email,
+            subject: "Login Alert",
+            text: "New login detected on your SmartBite account."
+        },
+        smsPayload: {
+            to: user.phone,
+            message: "SmartBite login detected."
+        }
     });
 
 export const notifyPasswordOtp = (user, otp) =>
-    sendNotification({
+    dispatchNotification({
         user,
         event: NOTIFICATION_EVENTS.PASSWORD_RESET_OTP,
-        title: "SmartBite Password Reset OTP",
-        message: `Your OTP is ${otp}. It is valid for 10 minutes.`
+        emailPayload: {
+            to: user.email,
+            subject: "Password Reset OTP",
+            text: `Your OTP is ${otp}`
+        },
+        smsPayload: {
+            to: user.phone,
+            message: `SmartBite OTP: ${otp}`
+        }
     });
+
 
 export const notifyPasswordChanged = (user) =>
-    sendNotification({
+    dispatchNotification({
         user,
         event: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
-        title: "Password Changed Successfully",
-        message: "Your SmartBite password was changed successfully."
+        emailPayload: {
+            to: user.email,
+            subject: "Password changed",
+            text: "Your password was updated successfully."
+        },
+        smsPayload: {
+            to: user.phone,
+            message: "SmartBite password changed successfully."
+        }
     });
 
-export const notifyPasswordExpiry = (user) =>
-    sendNotification({
+export const notifyPasswordExpiry = (user, expiryDate) =>
+    dispatchNotification({
         user,
         event: NOTIFICATION_EVENTS.PASSWORD_EXPIRY_REMINDER,
-        title: "Password Expiry Reminder",
-        message: `Your password will expire on ${user.passwordExpiresAt}. Please update it soon.`
+        emailPayload: {
+            to: user.email,
+            subject: "Password expiring soon",
+            text: `Your password expires on ${expiryDate}`
+        },
+        smsPayload: {
+            to: user.phone,
+            message: `SmartBite: Your password expires on ${expiryDate}`
+        }
     });
