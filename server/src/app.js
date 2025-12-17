@@ -39,6 +39,7 @@ import mealPlanRouter from "./routes/mealPlan.routes.js";
 import recommendationRouter from "./routes/recommendation.routes.js";
 import feedbackRouter from "./routes/feedback.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import constraintRoutes from "./routes/constraint.routes.js";
 
 // src/app.js
 import { startWeeklySummaryCron } from "./services/cron/weeklySummary.cron.js";
@@ -59,5 +60,6 @@ app.use("/api/v1/meal-plans", mealPlanRouter);
 app.use("/api/v1/recommendations", recommendationRouter);
 app.use("/api/v1/feedback", feedbackRouter);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/constraints", constraintRoutes);
 
 export { app }

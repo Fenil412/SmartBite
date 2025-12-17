@@ -8,6 +8,7 @@ import {
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { applyConstraints } from "../services/constraints.service.js";
 
 /**
  * GENERATE WEEKLY MEAL PLAN
@@ -24,9 +25,19 @@ export const generateMealPlan = asyncHandler(async (req, res) => {
     if (!meals.length) {
         throw new ApiError(404, "No meals available for your preferences");
     }
+    const constrainedMeals = applyConstraints(
+        meals,
+        user.constraints || {}
+    );
 
-    // 2. Rank meals via AI
-    const rankedMeals = await rankMealsWithAI(meals, user);
+    if (!constrainedMeals.length) {
+        throw new ApiError(
+            404,
+            "No meals match your real-world constraints"
+        );
+    }
+    // 2. Rank meals with AI
+    const rankedMeals = await rankMealsWithAI(constrainedMeals, user);
 
     // 3. Build weekly plan
     const days = buildWeeklyPlan(rankedMeals);

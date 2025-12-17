@@ -15,6 +15,20 @@ const DayMealSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "Meal",
             required: true
+        },
+        adherence: {
+            status: {
+                type: String,
+                enum: ["planned", "eaten", "skipped", "replaced"],
+                default: "planned"
+            },
+            replacedWith: {
+                type: String, // free text or external meal name
+                default: null
+            },
+            updatedAt: {
+                type: Date
+            }
         }
     },
     { _id: false }

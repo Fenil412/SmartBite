@@ -68,6 +68,14 @@ const MealSchema = new mongoose.Schema(
             select: false // used by Python service
         },
 
+        cookTime: { type: Number, required: true }, // minutes
+        skillLevel: {
+            type: String,
+            enum: ["beginner", "intermediate", "advanced"],
+            default: "beginner"
+        },
+        appliances: { type: [String], default: [] },
+
         // Ownership & stats
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,

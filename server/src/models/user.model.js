@@ -144,6 +144,19 @@ const UserSchema = new mongoose.Schema(
         activityHistory: { type: [ActivitySchema], default: [] },
         lastActiveAt: { type: Date },
 
+        constraints: {
+            maxCookTime: { type: Number, default: 30 }, // minutes
+            skillLevel: {
+                type: String,
+                enum: ["beginner", "intermediate", "advanced"],
+                default: "beginner"
+            },
+            appliances: {
+                type: [String], // ["oven", "microwave"]
+                default: []
+            }
+        },
+
         // --- Soft Delete ---
         isDeleted: { type: Boolean, default: false },
         deletedAt: { type: Date }

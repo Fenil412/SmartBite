@@ -90,6 +90,95 @@ export const updateMealPlan = asyncHandler(async (req, res) => {
     );
 });
 
+const findMealInPlan = (plan, day, mealType) => {
+    const dayPlan = plan.days.find(d => d.day === day);
+    if (!dayPlan) return null;
+
+    return dayPlan.meals.find(m => m.mealType === mealType);
+};
+
+export const adhereMeal = asyncHandler(async (req, res) => {
+    const { planId } = req.params;
+    const { day, mealType } = req.body;
+
+    const plan = await MealPlan.findOne({
+        _id: planId,
+        user: req.user._id,
+        isActive: true
+    });
+
+    if (!plan) throw new ApiError(404, "Meal plan not found");
+
+    const meal = findMealInPlan(plan, day, mealType);
+    if (!meal) throw new ApiError(400, "Meal not found for given day/type");
+
+    meal.adherence.status = "eaten";
+    meal.adherence.updatedAt = new Date();
+
+    await plan.save();
+
+    return ApiResponse.success(res, {
+        message: "Meal marked as eaten"
+    }, 200);
+});
+
+
+export const skipMeal = asyncHandler(async (req, res) => {
+    const { planId } = req.params;
+    const { day, mealType } = req.body;
+
+    const plan = await MealPlan.findOne({
+        _id: planId,
+        user: req.user._id,
+        isActive: true
+    });
+
+    if (!plan) throw new ApiError(404, "Meal plan not found");
+
+    const meal = findMealInPlan(plan, day, mealType);
+    if (!meal) throw new ApiError(400, "Meal not found");
+
+    meal.adherence.status = "skipped";
+    meal.adherence.updatedAt = new Date();
+
+    await plan.save();
+
+    return ApiResponse.success(res, {
+        message: "Meal marked as skipped"
+    }, 200);
+});
+
+
+export const replaceMeal = asyncHandler(async (req, res) => {
+    const { planId } = req.params;
+    const { day, mealType, replacedWith } = req.body;
+
+    if (!replacedWith) {
+        throw new ApiError(400, "replacedWith is required");
+    }
+
+    const plan = await MealPlan.findOne({
+        _id: planId,
+        user: req.user._id,
+        isActive: true
+    });
+
+    if (!plan) throw new ApiError(404, "Meal plan not found");
+
+    const meal = findMealInPlan(plan, day, mealType);
+    if (!meal) throw new ApiError(400, "Meal not found");
+
+    meal.adherence.status = "replaced";
+    meal.adherence.replacedWith = replacedWith;
+    meal.adherence.updatedAt = new Date();
+
+    await plan.save();
+
+    return ApiResponse.success(res, {
+        message: "Meal marked as replaced"
+    }, 200);
+});
+
 
 /* ===========================
    GET CURRENT USER MEAL PLANS
