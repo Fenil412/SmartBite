@@ -2,9 +2,11 @@ flask
 flask-cors
 pymongo
 python-dotenv
-numpy
 pandas
-scikit-learn
-ortools
-joblib
+numpy
+faiss-cpu
+sentence-transformers
 requests
+gunicorn
+pydantic
+
