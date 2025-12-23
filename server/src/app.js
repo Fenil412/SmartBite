@@ -64,4 +64,7 @@ app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/constraints", constraintRoutes);
 app.use("/api/v1", groceryRoutes);
 
+import mlContractRoutes from "./routes/mlContract.routes.js";
+app.use("/api", mlContractRoutes);
+
 export { app }
