@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from app.services.nutrition_engine import analyze_meals
+from app.services.nutrition_engine import analyze_meals_service
 from app.services.meal_planner import generate_weekly_plan
 from app.services.risk_analyzer import health_risk_report
 from app.services.groq_service import chat_ai
@@ -16,7 +16,9 @@ def health():
 
 @api.route("/analyze-meals", methods=["POST"])
 def analyze():
-    result = analyze_meals(request.json)
+    payload = MealPayload(**request.json)      # validation
+    normalized = normalize_payload(payload.dict())
+    result = analyze_meals_service(normalized)  # ✅ renamed service
     return success(result)
 
 @api.route("/generate-weekly-plan", methods=["POST"])
