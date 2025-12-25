@@ -139,7 +139,7 @@ npm install
 npm start
 ```
 
-### 3️⃣ AI/ML Service Setup
+### 3️⃣ AI/ML(Flask) Service Setup
 
 #### Install dependencies:
 
