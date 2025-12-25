@@ -13,6 +13,8 @@ import {
   notifyPasswordChanged,
   notifyPasswordExpiry
 } from "../services/notification.service.js";
+import { syncUserContextToFlask } from "../services/aiSync.service.js";
+
 
 
 // -------------------- CONSTANTS --------------------
@@ -159,7 +161,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
   await notifyLogin(user);
-
+  await syncUserContextToFlask(userContext);
 
   const safeUser = getSafeUser(user);
 
@@ -339,6 +341,7 @@ const sendPasswordExpiryReminders = asyncHandler(async (req, res) => {
 const getMe = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
   const user = await User.findById(userId);
+  await syncUserContextToFlask(userContext);
 
   if (!user || user.isDeleted) {
     throw new ApiError("User not found", 404);
@@ -388,6 +391,10 @@ const deleteMyProfile = asyncHandler(async (req, res) => {
   user.deletedAt = new Date();
   user.tokenVersion = (user.tokenVersion || 0) + 1;
   user.refreshToken = null;
+  await axios.delete(
+    `${process.env.FLASK_AI_BASE_URL}/internal/delete-user/${userId}`
+  );
+
 
   await addActivity(user, "DELETE_PROFILE", {});
   await user.save({ validateBeforeSave: false });
@@ -405,6 +412,47 @@ const getMyActivityHistory = asyncHandler(async (req, res) => {
 
   return ApiResponse.success(res, { activityHistory: user.activityHistory || [] }, 200);
 });
+
+export const getUserProfile = async (req, res) => {
+  if (req.headers["x-internal-key"] !== process.env.NODE_INTERNAL_KEY) {
+    return res.status(401).json({ success: false });
+  }
+  const userId = req.user.id;
+
+  const user = await User.findById(userId);
+  const constraints = await Constraint.findOne({ user: userId });
+  const feedback = await Feedback.find({ user: userId });
+  const adherenceHistory = await Adherence.find({ user: userId });
+
+  const userContext = {
+    user: {
+      id: user._id,
+      age: user.age,
+      heightCm: user.heightCm,
+      weightKg: user.weightKg,
+      gender: user.gender,
+      activityLevel: user.activityLevel,
+      goal: user.goal,
+      dietaryPreferences: user.dietaryPreferences,
+      dietaryRestrictions: user.dietaryRestrictions,
+      allergies: user.allergies,
+      budgetTier: user.budgetTier,
+      preferredCuisines: user.preferredCuisines
+    },
+    constraints,
+    feedback,
+    adherenceHistory
+  };
+
+  // 🔥 PUSH ONCE TO FLASK
+  await syncUserContextToFlask(userContext);
+
+  return res.json({
+    success: true,
+    data: userContext
+  });
+};
+
 
 export {
   registerUser,

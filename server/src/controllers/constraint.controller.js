@@ -2,6 +2,8 @@ import { Constraint } from "../models/constraint.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { User } from "../models/user.model.js";
+import { syncUserContextToFlask } from "../services/aiSync.service.js";
 
 /* ===========================
    CREATE / UPDATE CONSTRAINTS
@@ -30,6 +32,8 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
         }
     );
 
+    await syncUserContextToFlask(updatedUserContext);
+
     return ApiResponse.success(
         res,
         { constraint },
@@ -52,6 +56,8 @@ export const updateConstraints = asyncHandler(async (req, res) => {
     if (Array.isArray(appliances)) user.constraints.appliances = appliances;
 
     await user.save({ validateBeforeSave: false });
+
+    await syncUserContextToFlask(updatedUserContext);
 
     return ApiResponse.success(
         res,
@@ -89,6 +95,8 @@ export const deleteConstraints = asyncHandler(async (req, res) => {
     await Constraint.findOneAndDelete({
         user: req.user._id
     });
+
+    await syncUserContextToFlask(updatedUserContext);
 
     return ApiResponse.success(
         res,

@@ -1,29 +1,60 @@
-# app/services/nutrition_engine.py
+def analyze_meals_service(meals: list, user_ctx: dict) -> dict:
+    analyses = []
 
-def analyze_meals_service(payload):
-    """
-    Analyze meals and compute health score.
-    """
+    allergies = set(
+        a.lower() for a in (user_ctx.get("allergies") or [])
+    )
 
-    if not payload or "data" not in payload:
-        return []
+    goal = (user_ctx.get("goal") or "").lower()
+    weight = user_ctx.get("weight") or 70
 
-    results = []
-
-    for meal in payload["data"]:
-        nutrition = meal.get("nutrition", {})
-
+    for meal in meals:
+        n = meal.get("nutrition", {})
         score = 100
-        if nutrition.get("sodium", 0) > 400:
+        warnings = []
+
+        # 🔴 Allergy check
+        meal_allergens = [
+            a.lower() for a in meal.get("allergens", [])
+        ]
+        if allergies.intersection(meal_allergens):
+            score -= 40
+            warnings.append("Contains allergen unsafe for user")
+
+        # 🔴 Goal-based adjustments
+        if goal == "muscle_gain" and n.get("protein", 0) < 0.4 * weight:
             score -= 15
-        if nutrition.get("sugar", 0) > 10:
-            score -= 10
-        if nutrition.get("fiber", 0) < 8:
-            score -= 10
-        if nutrition.get("protein", 0) < 20:
-            score -= 5
+            warnings.append("Protein may be insufficient for muscle gain")
 
-        meal["healthScore"] = max(score, 40)
-        results.append(meal)
+        if goal == "weight_loss" and n.get("calories", 0) > 700:
+            score -= 10
+            warnings.append("High calorie meal for weight loss")
 
-    return results
+        # 🔴 Sugar & sodium
+        if n.get("sugar", 0) > 25:
+            score -= 10
+            warnings.append("High sugar content")
+
+        if n.get("sodium", 0) > 600:
+            score -= 10
+            warnings.append("High sodium content")
+
+        score = max(score, 0)
+
+        analyses.append({
+            "mealId": meal.get("id"),
+            "mealName": meal.get("name"),
+            "healthScore": score,
+            "nutrition": n,
+            "warnings": warnings,
+            "verdict": (
+                "Good choice" if score >= 80
+                else "Moderate" if score >= 60
+                else "Not recommended"
+            )
+        })
+
+    return {
+        "userGoal": user_ctx.get("goal"),
+        "analysis": analyses
+    }

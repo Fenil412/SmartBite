@@ -12,4 +12,5 @@ client = MongoClient(MONGO_URI)
 db = client["Mined_Sprint"]
 
 history_collection = db["ai_history"]
-analysis_collection = db["meal_analysis"]
+meal_analysis_collection = db["meal_analysis"]
+user_collection = db["user_context"]

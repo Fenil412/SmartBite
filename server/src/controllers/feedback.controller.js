@@ -2,6 +2,7 @@ import { Feedback } from "../models/feedback.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { syncUserContextToFlask } from "../services/aiSync.service.js";
 
 /* ===========================
    SUBMIT FEEDBACK
@@ -25,6 +26,8 @@ export const submitFeedback = asyncHandler(async (req, res) => {
     rating,
     comment
   });
+
+  await syncUserContextToFlask(updatedUserContext);
 
   return ApiResponse.success(
     res,

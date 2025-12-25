@@ -10,6 +10,8 @@ import {
     requestPasswordOtp,
     resetPasswordWithOtp,
 
+    getUserProfile,
+
     getMe,
     updateAvatar,
     deleteMyProfile,
@@ -50,5 +52,11 @@ router.delete("/me", authMiddleware, deleteMyProfile);
 /* ================= USER ACTIVITY ================= */
 
 router.get("/activity", authMiddleware, getMyActivityHistory);
+
+router.get(
+  "/internal/ai/user-context/:userId",
+  getUserProfile
+);
+
 
 export default router;

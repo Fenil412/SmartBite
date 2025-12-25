@@ -6,12 +6,15 @@ from flask_cors import CORS
 from app.api.routes import api
 from app.utils.logger import setup_logger
 import os
+from app.api.internal import internal_api
+
 
 def create_app():
     app = Flask(__name__)
     CORS(app, origins=os.getenv("CORS_ORIGIN", "*"))
     setup_logger()
     app.register_blueprint(api)
+    app.register_blueprint(internal_api)
     return app
 
 app = create_app()

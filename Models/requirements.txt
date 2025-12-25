@@ -9,4 +9,5 @@ sentence-transformers
 requests
 gunicorn
 pydantic
-
+xgboost
+pulp
