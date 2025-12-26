@@ -161,7 +161,14 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
   await notifyLogin(user);
-  await syncUserContextToFlask(userContext);
+
+  const userContext = { user };
+  try {
+      await syncUserContextToFlask(userContext);
+  } catch (err) {
+      console.error("Failed to sync user context to Flask:", err.message);
+      // We don't block login if sync fails, but we log it.
+  }
 
   const safeUser = getSafeUser(user);
 
@@ -341,10 +348,16 @@ const sendPasswordExpiryReminders = asyncHandler(async (req, res) => {
 const getMe = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
   const user = await User.findById(userId);
-  await syncUserContextToFlask(userContext);
 
   if (!user || user.isDeleted) {
     throw new ApiError("User not found", 404);
+  }
+
+  const userContext = { user };
+  try {
+      await syncUserContextToFlask(userContext);
+  } catch (err) {
+      console.error("Failed to sync user context to Flask:", err.message);
   }
 
   return ApiResponse.success(res, getSafeUser(user), 200);
@@ -391,10 +404,13 @@ const deleteMyProfile = asyncHandler(async (req, res) => {
   user.deletedAt = new Date();
   user.tokenVersion = (user.tokenVersion || 0) + 1;
   user.refreshToken = null;
-  await axios.delete(
-    `${process.env.FLASK_AI_BASE_URL}/internal/delete-user/${userId}`
-  );
-
+  try {
+    await axios.delete(
+      `${process.env.FLASK_AI_BASE_URL}/internal/delete-user/${userId}`
+    );
+  } catch (err) {
+      console.error("Failed to delete user from Flask:", err.message);
+  }
 
   await addActivity(user, "DELETE_PROFILE", {});
   await user.save({ validateBeforeSave: false });
@@ -454,6 +470,148 @@ export const getUserProfile = async (req, res) => {
 };
 
 
+const storeAdditionalData = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+  const { preferences, budgetTier, preferredCuisines, units, dietaryPreferences, dietaryRestrictions, allergies, medicalNotes, favoriteMeals } = req.body;
+
+  if (!userId) {
+    throw new ApiError("Unauthorized", 401);
+  }
+
+  const user = await User.findById(userId);
+  if (!user || user.isDeleted) {
+    throw new ApiError("User not found", 404);
+  }
+
+  // Update preferences object
+  const updatedPreferences = {
+    ...user.preferences,
+    budgetTier: budgetTier || user.preferences?.budgetTier,
+    preferredCuisines: preferredCuisines || user.preferences?.preferredCuisines,
+    units: units || user.preferences?.units,
+    dietaryPreferences: dietaryPreferences || user.preferences?.dietaryPreferences,
+    dietaryRestrictions: dietaryRestrictions || user.preferences?.dietaryRestrictions,
+    allergies: allergies || user.preferences?.allergies,
+    medicalNotes: medicalNotes || user.preferences?.medicalNotes,
+    favoriteMeals: favoriteMeals || user.preferences?.favoriteMeals,
+    ...preferences
+  };
+
+  user.preferences = updatedPreferences;
+
+  await addActivity(user, "STORE_ADDITIONAL_DATA", { dataKeys: Object.keys(req.body) });
+  await user.save({ validateBeforeSave: false });
+
+  return ApiResponse.success(res, getSafeUser(user), 200);
+});
+
+const updateUserData = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+  const { fullName, name, email, phone, profile, preferences, ...otherData } = req.body;
+
+  if (!userId) {
+    throw new ApiError("Unauthorized", 401);
+  }
+
+  const user = await User.findById(userId);
+  if (!user || user.isDeleted) {
+    throw new ApiError("User not found", 404);
+  }
+
+  // Update user data (excluding username as requested)
+  if (fullName !== undefined) user.name = fullName;
+  if (name !== undefined) user.name = name;
+  if (email !== undefined) {
+    const normalizedEmail = email.toLowerCase().trim();
+    // Check if email is already taken by another user
+    const existingUser = await User.findOne({ 
+      email: normalizedEmail, 
+      _id: { $ne: userId } 
+    });
+    if (existingUser) {
+      throw new ApiError("Email is already taken by another user", 409);
+    }
+    user.email = normalizedEmail;
+  }
+  if (phone !== undefined) user.phone = phone;
+  
+  // Update profile data
+  if (profile) {
+    user.profile = {
+      ...user.profile,
+      ...profile
+    };
+  }
+
+  // Update preferences
+  if (preferences) {
+    user.preferences = {
+      ...user.preferences,
+      ...preferences
+    };
+  }
+
+  // Update other data fields
+  Object.keys(otherData).forEach(key => {
+    if (key !== 'username' && key !== 'password') { // Exclude username and password
+      user[key] = otherData[key];
+    }
+  });
+
+  await addActivity(user, "UPDATE_USER_DATA", { updatedFields: Object.keys(req.body) });
+  await user.save({ validateBeforeSave: false });
+
+  return ApiResponse.success(res, getSafeUser(user), 200);
+});
+
+const getActivityStats = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  try {
+    const user = await User.findById(userId).select('activityHistory lastActiveAt createdAt');
+    
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    const activityHistory = user.activityHistory || [];
+    
+    // Calculate total activities
+    const totalActivities = activityHistory.length;
+    
+    // Calculate active days (unique days with activities)
+    const uniqueDays = new Set();
+    activityHistory.forEach(activity => {
+      const date = new Date(activity.createdAt).toDateString();
+      uniqueDays.add(date);
+    });
+    const activeDays = uniqueDays.size;
+    
+    // Calculate this week's activities
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const thisWeekActivities = activityHistory.filter(activity => 
+      new Date(activity.createdAt) >= oneWeekAgo
+    ).length;
+    
+    // Get last active date
+    const lastActive = user.lastActiveAt || (activityHistory.length > 0 ? 
+      activityHistory[activityHistory.length - 1].createdAt : null);
+
+    const stats = {
+      totalActivities,
+      activeDays,
+      thisWeek: thisWeekActivities,
+      lastActive
+    };
+
+    return ApiResponse.success(res, stats, 200);
+  } catch (error) {
+    throw new ApiError("Failed to fetch activity stats", 500);
+  }
+});
+
 export {
   registerUser,
   loginUser,
@@ -466,4 +624,7 @@ export {
   updateAvatar,
   deleteMyProfile,
   getMyActivityHistory,
+  getActivityStats,
+  storeAdditionalData,
+  updateUserData,
 };

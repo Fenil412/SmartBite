@@ -16,6 +16,9 @@ import {
     updateAvatar,
     deleteMyProfile,
     getMyActivityHistory,
+    getActivityStats,
+    storeAdditionalData,
+    updateUserData,
 } from "../controllers/user.controller.js";
 
 /* ========== Middlewares ========== */
@@ -47,11 +50,17 @@ router.put(
     updateAvatar
 );
 
+router.put("/additional-data", authMiddleware, storeAdditionalData);
+
+router.put("/update", authMiddleware, updateUserData);
+
 router.delete("/me", authMiddleware, deleteMyProfile);
 
 /* ================= USER ACTIVITY ================= */
 
 router.get("/activity", authMiddleware, getMyActivityHistory);
+
+router.get("/activity-stats", authMiddleware, getActivityStats);
 
 router.get(
   "/internal/ai/user-context/:userId",
