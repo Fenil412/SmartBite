@@ -14,11 +14,17 @@ import {
   LogOut,
   BarChart3,
   UtensilsCrossed,
-  ChefHat
+  ChefHat,
+  Sliders,
+  MessageSquare,
+  Bell,
+  Sparkles,
+  ShoppingCart
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { useNotifications } from '../contexts/NotificationContext'
 import useThemeStore from '../store/themeStore'
 import { useState } from 'react'
 
@@ -28,10 +34,14 @@ const navigation = [
   { name: 'Meal Planner', href: '/dashboard/meal-planner', icon: Calendar },
   { name: 'Browse Meals', href: '/dashboard/meals', icon: UtensilsCrossed, end: true },
   { name: 'My Meals', href: '/dashboard/meals/my-meals', icon: ChefHat },
-  { name: 'AI Recommendations', href: '/dashboard/ai-recommendations', icon: Brain },
+  { name: 'Smart Grocery', href: '/dashboard/grocery', icon: ShoppingCart },
+  { name: 'AI Recommendations', href: '/dashboard/recommendations', icon: Sparkles },
+  { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
   { name: 'Goals', href: '/dashboard/goals', icon: Target },
   { name: 'History', href: '/dashboard/history', icon: History },
   { name: 'Profile', href: '/dashboard/profile', icon: User },
+  { name: 'Constraints', href: '/dashboard/constraints', icon: Sliders },
+  { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
@@ -67,6 +77,7 @@ const ThemeToggle = () => {
 const Sidebar = ({ onClose }) => {
   const { user, logout } = useAuth()
   const { success } = useToast()
+  const { unreadCount } = useNotifications()
   const navigate = useNavigate()
   const [isCollapsed] = useState(true) // Start collapsed, remove setIsCollapsed since it's not used
   const [isHovering, setIsHovering] = useState(false)
@@ -248,13 +259,21 @@ const Sidebar = ({ onClose }) => {
           >
             {({ isActive }) => (
               <>
-                <item.icon
-                  className={`h-5 w-5 transition-colors ${
-                    isActive
-                      ? 'text-primary-600 dark:text-primary-400'
-                      : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
-                  } ${!shouldShowExpanded ? '' : 'mr-3'}`}
-                />
+                <div className="relative">
+                  <item.icon
+                    className={`h-5 w-5 transition-colors ${
+                      isActive
+                        ? 'text-primary-600 dark:text-primary-400'
+                        : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                    } ${!shouldShowExpanded ? '' : 'mr-3'}`}
+                  />
+                  {/* Notification Badge */}
+                  {item.name === 'Notifications' && unreadCount > 0 && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </div>
+                  )}
+                </div>
                 <AnimatePresence>
                   {shouldShowExpanded && (
                     <motion.span

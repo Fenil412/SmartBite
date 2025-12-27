@@ -27,7 +27,17 @@ export const submitFeedback = asyncHandler(async (req, res) => {
     comment
   });
 
-  await syncUserContextToFlask(updatedUserContext);
+  // Sync user context to Flask AI service
+  try {
+    const updatedUserContext = {
+      userId: req.user._id,
+      feedback: feedback
+    };
+    await syncUserContextToFlask(updatedUserContext);
+  } catch (syncError) {
+    console.error('Failed to sync user context:', syncError);
+    // Don't fail the request if sync fails
+  }
 
   return ApiResponse.success(
     res,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Calendar, BarChart3 } from 'lucide-react'
+import { Plus, Calendar, BarChart3, ShoppingCart } from 'lucide-react'
 import { mealPlanService } from '../../services/mealPlanService'
 import { useToast } from '../../contexts/ToastContext'
 import MealPlanCard from '../../components/mealPlan/MealPlanCard'
@@ -80,13 +80,23 @@ const MealPlannerDashboard = () => {
             </p>
           </div>
           
-          <Link
-            to="/dashboard/meal-planner/create"
-            className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Plan</span>
-          </Link>
+          <div className="flex items-center space-x-3">
+            <Link
+              to="/dashboard/grocery"
+              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span>Grocery Lists</span>
+            </Link>
+            
+            <Link
+              to="/dashboard/meal-planner/create"
+              className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Plan</span>
+            </Link>
+          </div>
         </div>
       </motion.div>
 

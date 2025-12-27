@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
   Heart, Clock, DollarSign, ChefHat, Utensils, 
-  Edit, Trash2, ArrowLeft, AlertTriangle 
+  Edit, Trash2, ArrowLeft, AlertTriangle, MessageSquare 
 } from 'lucide-react'
 import { mealService } from '../../services/mealService'
 import { useAuth } from '../../contexts/AuthContext'
@@ -181,6 +181,15 @@ const MealDetailsPage = () => {
                   <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                   <span>{meal.likedBy.length}</span>
                 </button>
+
+                {/* Feedback Button */}
+                <Link
+                  to={`/dashboard/feedback?mealId=${mealId}`}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Feedback</span>
+                </Link>
 
                 {/* Owner Actions */}
                 {isOwner && (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Edit, Trash2, Calendar, BarChart3 } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, Calendar, BarChart3, MessageSquare, ShoppingCart } from 'lucide-react'
 import { mealPlanService } from '../../services/mealPlanService'
 import { useToast } from '../../contexts/ToastContext'
 import WeekCalendar from '../../components/mealPlan/WeekCalendar'
@@ -190,6 +190,22 @@ const MealPlanDetails = () => {
           </div>
           
           <div className="flex items-center space-x-2">
+            <Link
+              to={`/dashboard/grocery/${planId}`}
+              className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span>Grocery List</span>
+            </Link>
+            
+            <Link
+              to={`/dashboard/feedback?mealPlanId=${planId}`}
+              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Feedback</span>
+            </Link>
+            
             <Link
               to={`/dashboard/meal-planner/${planId}/edit`}
               className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"

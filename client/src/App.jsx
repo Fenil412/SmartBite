@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ToastProvider from './contexts/ToastContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import AuthDebug from './components/AuthDebug'
@@ -16,6 +17,13 @@ import ApiTestPage from './pages/ApiTestPage'
 import SettingsPage from './pages/SettingsPage'
 import ProfilePage from './pages/ProfilePage'
 import ActivityPage from './pages/ActivityPage'
+import ConstraintsPage from './pages/ConstraintsPage'
+import FeedbackPage from './pages/FeedbackPage'
+import NotificationsPage from './pages/NotificationsPage'
+import RecommendationsPage from './pages/RecommendationsPage'
+import RecommendationHistoryPage from './pages/RecommendationHistoryPage'
+import GroceryPage from './pages/GroceryPage'
+import GroceryDashboard from './pages/GroceryDashboard'
 // Meal Pages
 import MealsListPage from './pages/meals/MealsListPage'
 import MealDetailsPage from './pages/meals/MealDetailsPage'
@@ -47,7 +55,8 @@ function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 relative">
+        <NotificationProvider>
+          <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 relative">
           <ParticleSystem particleCount={30} theme={isDark ? 'dark' : 'light'} />
           <Routes>
             {/* Public Routes */}
@@ -70,10 +79,17 @@ function App() {
               <Route path="meal-planner/create" element={<CreateMealPlan />} />
               <Route path="meal-planner/:planId" element={<MealPlanDetails />} />
               <Route path="meal-planner/:planId/edit" element={<EditMealPlan />} />
+              <Route path="grocery" element={<GroceryDashboard />} />
+              <Route path="grocery/:mealPlanId" element={<GroceryPage />} />
+              <Route path="recommendations" element={<RecommendationsPage />} />
+              <Route path="recommendations/history" element={<RecommendationHistoryPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="ai-recommendations" element={<div className="p-8">AI Recommendations Coming Soon</div>} />
               <Route path="goals" element={<div className="p-8">Goals Coming Soon</div>} />
               <Route path="history" element={<ActivityPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="constraints" element={<ConstraintsPage />} />
+              <Route path="feedback" element={<FeedbackPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="api-test" element={<ApiTestPage />} />
               {/* Meal Routes */}
@@ -90,8 +106,9 @@ function App() {
           <FloatingActionButton />
           <AuthDebug />
         </div>
-      </AuthProvider>
-    </ToastProvider>
+      </NotificationProvider>
+    </AuthProvider>
+  </ToastProvider>
   )
 }
 

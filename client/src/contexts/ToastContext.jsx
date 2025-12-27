@@ -15,9 +15,10 @@ export const useToast = () => {
 const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([])
 
-  const addToast = (message, type = 'info', duration = 5000) => {
+  const addToast = (message, type = 'info', options = {}) => {
+    const { duration = 5000, action } = options
     const id = Date.now() + Math.random()
-    const toast = { id, message, type, duration }
+    const toast = { id, message, type, duration, action }
     
     setToasts(prev => [...prev, toast])
     
@@ -34,10 +35,10 @@ const ToastProvider = ({ children }) => {
     setToasts(prev => prev.filter(toast => toast.id !== id))
   }
 
-  const success = (message, duration) => addToast(message, 'success', duration)
-  const error = (message, duration) => addToast(message, 'error', duration)
-  const warning = (message, duration) => addToast(message, 'warning', duration)
-  const info = (message, duration) => addToast(message, 'info', duration)
+  const success = (message, options) => addToast(message, 'success', options)
+  const error = (message, options) => addToast(message, 'error', options)
+  const warning = (message, options) => addToast(message, 'warning', options)
+  const info = (message, options) => addToast(message, 'info', options)
 
   return (
     <ToastContext.Provider value={{ success, error, warning, info, removeToast }}>
@@ -87,9 +88,22 @@ const ToastContainer = ({ toasts, removeToast }) => {
             className={`flex items-center space-x-3 p-4 rounded-lg border shadow-lg backdrop-blur-sm max-w-sm ${getStyles(toast.type)}`}
           >
             {getIcon(toast.type)}
-            <p className="text-sm font-medium text-gray-900 dark:text-white flex-1">
-              {toast.message}
-            </p>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {toast.message}
+              </p>
+              {toast.action && (
+                <button
+                  onClick={() => {
+                    toast.action.onClick()
+                    removeToast(toast.id)
+                  }}
+                  className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mt-1"
+                >
+                  {toast.action.label}
+                </button>
+              )}
+            </div>
             <button
               onClick={() => removeToast(toast.id)}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"

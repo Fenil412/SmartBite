@@ -46,11 +46,20 @@ const NotificationSchema = new mongoose.Schema(
             type: String
         },
 
-        sentAt: Date
+        sentAt: Date,
+
+        isRead: {
+            type: Boolean,
+            default: false,
+            index: true
+        },
+
+        readAt: Date
     },
     { timestamps: true }
 );
 
 NotificationSchema.index({ status: 1, createdAt: 1 });
+NotificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
 
 export const Notification = mongoose.model("Notification", NotificationSchema);

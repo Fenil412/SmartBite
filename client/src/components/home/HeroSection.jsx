@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowRight, Sparkles, Shield, Zap } from 'lucide-react'
+import { ArrowRight, Sparkles, Shield, Zap, ShoppingCart } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import useMagneticEffect from '../../hooks/useMagneticEffect'
 import useScrollReveal from '../../hooks/useScrollReveal'
@@ -121,11 +121,12 @@ const HeroSection = () => {
                   </Link>
                   
                   <Link
-                    to="/dashboard/ai-recommendations"
+                    to="/dashboard/grocery"
                     ref={secondaryButtonRef}
-                    className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-8 py-4 rounded-2xl font-semibold text-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-xl transition-all duration-300 transform hover:scale-105 magnetic cursor-hover"
+                    className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-8 py-4 rounded-2xl font-semibold text-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 magnetic cursor-hover"
                   >
-                    Get AI Recommendations
+                    <ShoppingCart className="h-5 w-5" />
+                    <span>Smart Grocery</span>
                   </Link>
                 </>
               ) : isAuthenticated ? (

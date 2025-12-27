@@ -2,7 +2,6 @@ import { Constraint } from "../models/constraint.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { User } from "../models/user.model.js";
 import { syncUserContextToFlask } from "../services/aiSync.service.js";
 
 /* ===========================
@@ -16,6 +15,9 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
         appliances,
         cookingDays
     } = req.body;
+
+    console.log('🔍 DEBUG: Upserting constraints for user:', userId);
+    console.log('🔍 DEBUG: Request body:', req.body);
 
     const constraint = await Constraint.findOneAndUpdate(
         { user: userId },
@@ -32,7 +34,20 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
         }
     );
 
-    await syncUserContextToFlask(updatedUserContext);
+    console.log('🔍 DEBUG: Upserted constraint:', constraint);
+
+    // Sync user context to Flask AI service
+    try {
+        const updatedUserContext = {
+            userId,
+            constraints: constraint
+        };
+        await syncUserContextToFlask(updatedUserContext);
+        console.log('🔍 DEBUG: Successfully synced to Flask');
+    } catch (syncError) {
+        console.error('🔍 DEBUG: Failed to sync user context:', syncError);
+        // Don't fail the request if sync fails
+    }
 
     return ApiResponse.success(
         res,
@@ -41,45 +56,38 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
     );
 });
 
-export const updateConstraints = asyncHandler(async (req, res) => {
-    const { maxCookTime, skillLevel, appliances } = req.body;
-
-    if (!maxCookTime && !skillLevel && !appliances) {
-        throw new ApiError(400, "At least one constraint is required");
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) throw new ApiError(404, "User not found");
-
-    if (maxCookTime !== undefined) user.constraints.maxCookTime = maxCookTime;
-    if (skillLevel) user.constraints.skillLevel = skillLevel;
-    if (Array.isArray(appliances)) user.constraints.appliances = appliances;
-
-    await user.save({ validateBeforeSave: false });
-
-    await syncUserContextToFlask(updatedUserContext);
-
-    return ApiResponse.success(
-        res,
-        {
-            constraints: user.constraints,
-            message: "Constraints updated successfully"
-        },
-        200
-    );
-});
-
 /* ===========================
    GET MY CONSTRAINTS
 =========================== */
 export const getMyConstraints = asyncHandler(async (req, res) => {
-    const constraint = await Constraint.findOne({
-        user: req.user._id
+    const userId = req.user._id;
+    console.log('🔍 DEBUG: Getting constraints for user:', userId);
+    
+    let constraint = await Constraint.findOne({
+        user: userId
     });
 
+    console.log('🔍 DEBUG: Found constraint:', constraint);
+
+    // If no constraints found, return default values instead of 404
     if (!constraint) {
-        throw new ApiError(404, "Constraints not set yet");
+        console.log('🔍 DEBUG: No constraints found, returning defaults');
+        constraint = {
+            user: userId,
+            maxCookTime: 30,
+            skillLevel: 'beginner',
+            appliances: {
+                hasGasStove: true,
+                hasOven: false,
+                hasMicrowave: true,
+                hasAirFryer: false,
+                hasBlender: false
+            },
+            cookingDays: []
+        };
     }
+
+    console.log('🔍 DEBUG: Returning constraint:', constraint);
 
     return ApiResponse.success(
         res,
@@ -92,15 +100,35 @@ export const getMyConstraints = asyncHandler(async (req, res) => {
    DELETE CONSTRAINTS
 =========================== */
 export const deleteConstraints = asyncHandler(async (req, res) => {
-    await Constraint.findOneAndDelete({
-        user: req.user._id
+    const userId = req.user._id;
+    console.log('🔍 DEBUG: Deleting constraints for user:', userId);
+    
+    const constraint = await Constraint.findOneAndDelete({
+        user: userId
     });
 
-    await syncUserContextToFlask(updatedUserContext);
+    console.log('🔍 DEBUG: Deleted constraint:', constraint);
+
+    // Sync user context to Flask AI service
+    try {
+        const updatedUserContext = {
+            userId: userId,
+            constraints: null
+        };
+        await syncUserContextToFlask(updatedUserContext);
+        console.log('🔍 DEBUG: Successfully synced deletion to Flask');
+    } catch (syncError) {
+        console.error('🔍 DEBUG: Failed to sync user context:', syncError);
+        // Don't fail the request if sync fails
+    }
 
     return ApiResponse.success(
         res,
-        { message: "Constraints removed successfully" },
+        { 
+            message: constraint 
+                ? "Constraints removed successfully" 
+                : "No constraints found to remove"
+        },
         200
     );
 });
