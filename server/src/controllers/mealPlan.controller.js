@@ -10,7 +10,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 =========================== */
 export const createMealPlan = asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    const { weekStartDate, days, nutritionSummary } = req.body;
+    const { title, weekStartDate, days, nutritionSummary } = req.body;
 
     if (!weekStartDate || !days?.length) {
         throw new ApiError(400, "weekStartDate and days are required");
@@ -24,13 +24,23 @@ export const createMealPlan = asyncHandler(async (req, res) => {
         throw new ApiError(400, "One or more meals are invalid");
     }
 
-    const plan = await MealPlan.create({
+    const planData = {
         user: userId,
         weekStartDate,
         days,
         nutritionSummary,
-        generatedBy: "ai"
-    });
+        generatedBy: "manual" // Changed from "ai" since user is creating manually
+    };
+
+    // Add title if provided, otherwise use model default
+    if (title && title.trim()) {
+        planData.title = title.trim();
+        console.log('🔍 DEBUG: Creating meal plan with custom title:', title.trim());
+    } else {
+        console.log('🔍 DEBUG: Creating meal plan with default title (no custom title provided)');
+    }
+
+    const plan = await MealPlan.create(planData);
 
     // Save plan history on user
     await User.findByIdAndUpdate(userId, {
@@ -51,7 +61,7 @@ export const createMealPlan = asyncHandler(async (req, res) => {
 export const updateMealPlan = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const { planId } = req.params;
-    const { weekStartDate, days, nutritionSummary } = req.body;
+    const { title, weekStartDate, days, nutritionSummary } = req.body;
 
     const plan = await MealPlan.findOne({
         _id: planId,
@@ -61,6 +71,13 @@ export const updateMealPlan = asyncHandler(async (req, res) => {
 
     if (!plan) {
         throw new ApiError(404, "Meal plan not found or not authorized");
+    }
+
+    // Update title if provided
+    if (title !== undefined) {
+        const newTitle = title.trim() || "Weekly Meal Plan";
+        console.log('🔍 DEBUG: Updating meal plan title from:', plan.title, 'to:', newTitle);
+        plan.title = newTitle;
     }
 
     // Validate meals if days are updated

@@ -22,6 +22,11 @@ import MealDetailsPage from './pages/meals/MealDetailsPage'
 import CreateMealPage from './pages/meals/CreateMealPage'
 import EditMealPage from './pages/meals/EditMealPage'
 import MyMealsPage from './pages/meals/MyMealsPage'
+// Meal Plan Pages
+import MealPlannerDashboard from './pages/mealPlan/MealPlannerDashboard'
+import MealPlanDetails from './pages/mealPlan/MealPlanDetails'
+import CreateMealPlan from './pages/mealPlan/CreateMealPlan'
+import EditMealPlan from './pages/mealPlan/EditMealPlan'
 import ParticleSystem from './components/ParticleSystem'
 import FloatingActionButton from './components/FloatingActionButton'
 import useThemeStore from './store/themeStore'
@@ -61,7 +66,10 @@ function App() {
               <Route index element={<Navigate to="/dashboard/analytics" replace />} />
               <Route path="analytics" element={<DashboardPage />} />
               <Route path="home" element={<DashboardHomePage />} />
-              <Route path="meal-planner" element={<div className="p-8">Meal Planner Coming Soon</div>} />
+              <Route path="meal-planner" element={<MealPlannerDashboard />} />
+              <Route path="meal-planner/create" element={<CreateMealPlan />} />
+              <Route path="meal-planner/:planId" element={<MealPlanDetails />} />
+              <Route path="meal-planner/:planId/edit" element={<EditMealPlan />} />
               <Route path="ai-recommendations" element={<div className="p-8">AI Recommendations Coming Soon</div>} />
               <Route path="goals" element={<div className="p-8">Goals Coming Soon</div>} />
               <Route path="history" element={<ActivityPage />} />
