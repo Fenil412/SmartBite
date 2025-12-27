@@ -7,13 +7,36 @@ import LoadingSpinner from '../components/LoadingSpinner'
 
 const ActivityPage = () => {
   const [activityData, setActivityData] = useState(null)
+  const [activityStats, setActivityStats] = useState({
+    totalActivities: 0,
+    activeDays: 0,
+    thisWeek: 0,
+    lastActive: null
+  })
   const [loading, setLoading] = useState(true)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
   const [filter, setFilter] = useState('all') // all, today, week, month
   const { error: showError } = useToast()
 
   useEffect(() => {
     loadActivityData()
+    fetchActivityStats()
   }, [filter])
+
+  const fetchActivityStats = async () => {
+    setIsLoadingStats(true)
+    try {
+      const response = await userService.getActivityStats()
+      if (response.success) {
+        setActivityStats(response.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch activity stats:', error)
+      // Don't show error to user as this is not critical
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }
 
   const loadActivityData = async () => {
     try {
@@ -21,7 +44,46 @@ const ActivityPage = () => {
       const response = await userService.getActivityHistory()
       
       if (response.success) {
-        setActivityData(response.data)
+        let filteredData = response.data.activities || []
+        
+        // Apply filtering based on selected filter
+        const now = new Date()
+        
+        switch (filter) {
+          case 'today':
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            filteredData = filteredData.filter(activity => 
+              new Date(activity.createdAt) >= today
+            )
+            break
+            
+          case 'week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            filteredData = filteredData.filter(activity => 
+              new Date(activity.createdAt) >= weekAgo
+            )
+            break
+            
+          case 'month':
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            filteredData = filteredData.filter(activity => 
+              new Date(activity.createdAt) >= monthAgo
+            )
+            break
+            
+          case 'all':
+          default:
+            // No filtering needed
+            break
+        }
+        
+        // Sort by date (newest first)
+        filteredData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        
+        setActivityData({
+          ...response.data,
+          activities: filteredData
+        })
       } else {
         showError(response.message || 'Failed to load activity data')
       }
@@ -133,28 +195,28 @@ const ActivityPage = () => {
           {
             icon: Activity,
             label: 'Total Activities',
-            value: activityData?.totalActivities || 0,
+            value: isLoadingStats ? '...' : activityStats.totalActivities,
             color: 'text-blue-600',
             bgColor: 'bg-blue-50 dark:bg-blue-900/20'
           },
           {
             icon: Calendar,
             label: 'Active Days',
-            value: activityData?.activeDays || 0,
+            value: isLoadingStats ? '...' : activityStats.activeDays,
             color: 'text-green-600',
             bgColor: 'bg-green-50 dark:bg-green-900/20'
           },
           {
             icon: TrendingUp,
             label: 'This Week',
-            value: activityData?.thisWeekActivities || 0,
+            value: isLoadingStats ? '...' : activityStats.thisWeek,
             color: 'text-purple-600',
             bgColor: 'bg-purple-50 dark:bg-purple-900/20'
           },
           {
             icon: Clock,
             label: 'Last Active',
-            value: activityData?.lastActive ? new Date(activityData.lastActive).toLocaleDateString() : 'N/A',
+            value: isLoadingStats ? '...' : (activityStats.lastActive ? new Date(activityStats.lastActive).toLocaleDateString() : 'N/A'),
             color: 'text-orange-600',
             bgColor: 'bg-orange-50 dark:bg-orange-900/20'
           }

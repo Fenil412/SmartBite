@@ -472,7 +472,16 @@ export const getUserProfile = async (req, res) => {
 
 const storeAdditionalData = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
-  const { preferences, budgetTier, preferredCuisines, units, dietaryPreferences, dietaryRestrictions, allergies, medicalNotes, favoriteMeals } = req.body;
+  const { 
+    budgetTier, 
+    preferredCuisines, 
+    units, 
+    dietaryPreferences, 
+    dietaryRestrictions, 
+    allergies, 
+    medicalNotes, 
+    favoriteMeals 
+  } = req.body;
 
   if (!userId) {
     throw new ApiError("Unauthorized", 401);
@@ -483,21 +492,32 @@ const storeAdditionalData = asyncHandler(async (req, res) => {
     throw new ApiError("User not found", 404);
   }
 
-  // Update preferences object
-  const updatedPreferences = {
-    ...user.preferences,
-    budgetTier: budgetTier || user.preferences?.budgetTier,
-    preferredCuisines: preferredCuisines || user.preferences?.preferredCuisines,
-    units: units || user.preferences?.units,
-    dietaryPreferences: dietaryPreferences || user.preferences?.dietaryPreferences,
-    dietaryRestrictions: dietaryRestrictions || user.preferences?.dietaryRestrictions,
-    allergies: allergies || user.preferences?.allergies,
-    medicalNotes: medicalNotes || user.preferences?.medicalNotes,
-    favoriteMeals: favoriteMeals || user.preferences?.favoriteMeals,
-    ...preferences
-  };
+  // Update preferences
+  if (budgetTier !== undefined || preferredCuisines !== undefined || units !== undefined) {
+    user.preferences = {
+      ...user.preferences,
+      ...(budgetTier !== undefined && { budgetTier }),
+      ...(preferredCuisines !== undefined && { preferredCuisines }),
+      ...(units !== undefined && { units })
+    };
+  }
 
-  user.preferences = updatedPreferences;
+  // Update profile dietary information
+  if (dietaryPreferences !== undefined || dietaryRestrictions !== undefined || 
+      allergies !== undefined || medicalNotes !== undefined) {
+    user.profile = {
+      ...user.profile,
+      ...(dietaryPreferences !== undefined && { dietaryPreferences }),
+      ...(dietaryRestrictions !== undefined && { dietaryRestrictions }),
+      ...(allergies !== undefined && { allergies }),
+      ...(medicalNotes !== undefined && { medicalNotes })
+    };
+  }
+
+  // Update favorite meals
+  if (favoriteMeals !== undefined) {
+    user.favoriteMeals = favoriteMeals;
+  }
 
   await addActivity(user, "STORE_ADDITIONAL_DATA", { dataKeys: Object.keys(req.body) });
   await user.save({ validateBeforeSave: false });
@@ -507,7 +527,7 @@ const storeAdditionalData = asyncHandler(async (req, res) => {
 
 const updateUserData = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
-  const { fullName, name, email, phone, profile, preferences, ...otherData } = req.body;
+  const { fullName, phone, profile, preferences } = req.body;
 
   if (!userId) {
     throw new ApiError("Unauthorized", 401);
@@ -518,22 +538,13 @@ const updateUserData = asyncHandler(async (req, res) => {
     throw new ApiError("User not found", 404);
   }
 
-  // Update user data (excluding username as requested)
-  if (fullName !== undefined) user.name = fullName;
-  if (name !== undefined) user.name = name;
-  if (email !== undefined) {
-    const normalizedEmail = email.toLowerCase().trim();
-    // Check if email is already taken by another user
-    const existingUser = await User.findOne({ 
-      email: normalizedEmail, 
-      _id: { $ne: userId } 
-    });
-    if (existingUser) {
-      throw new ApiError("Email is already taken by another user", 409);
-    }
-    user.email = normalizedEmail;
+  // Update basic user data
+  if (fullName !== undefined) {
+    user.name = fullName;
   }
-  if (phone !== undefined) user.phone = phone;
+  if (phone !== undefined) {
+    user.phone = phone;
+  }
   
   // Update profile data
   if (profile) {
@@ -550,13 +561,6 @@ const updateUserData = asyncHandler(async (req, res) => {
       ...preferences
     };
   }
-
-  // Update other data fields
-  Object.keys(otherData).forEach(key => {
-    if (key !== 'username' && key !== 'password') { // Exclude username and password
-      user[key] = otherData[key];
-    }
-  });
 
   await addActivity(user, "UPDATE_USER_DATA", { updatedFields: Object.keys(req.body) });
   await user.save({ validateBeforeSave: false });

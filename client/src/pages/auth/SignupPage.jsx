@@ -168,7 +168,17 @@ const SignupPage = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
+            <img 
+              src="/logo.svg" 
+              alt="SmartBite Logo" 
+              className="w-12 h-12 object-contain"
+              onError={(e) => {
+                // Fallback to gradient background if logo fails to load
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'flex';
+              }}
+            />
+            <div className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center" style={{display: 'none'}}>
               <span className="text-white font-bold text-xl">S</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">SmartBite</h1>

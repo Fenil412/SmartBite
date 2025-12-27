@@ -58,6 +58,16 @@ export const userService = {
     return await api.put('/users/update', data)
   },
 
+  // Store Additional Data API
+  storeAdditionalData: async (data) => {
+    return await api.put('/users/additional-data', data)
+  },
+
+  // Get Activity History
+  getActivityHistory: async () => {
+    return await api.get('/users/activity')
+  },
+
   // Delete Account
   deleteAccount: async () => {
     return await api.delete('/users/me')

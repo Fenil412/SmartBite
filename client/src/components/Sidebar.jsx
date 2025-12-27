@@ -12,7 +12,9 @@ import {
   Moon,
   Monitor,
   LogOut,
-  BarChart3
+  BarChart3,
+  UtensilsCrossed,
+  ChefHat
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
@@ -24,6 +26,8 @@ const navigation = [
   { name: 'Home', href: '/dashboard/home', icon: Home },
   { name: 'Dashboard', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Meal Planner', href: '/dashboard/meal-planner', icon: Calendar },
+  { name: 'Browse Meals', href: '/dashboard/meals', icon: UtensilsCrossed, end: true },
+  { name: 'My Meals', href: '/dashboard/meals/my-meals', icon: ChefHat },
   { name: 'AI Recommendations', href: '/dashboard/ai-recommendations', icon: Brain },
   { name: 'Goals', href: '/dashboard/goals', icon: Target },
   { name: 'History', href: '/dashboard/history', icon: History },
@@ -121,7 +125,17 @@ const Sidebar = ({ onClose }) => {
                   onClose && onClose()
                 }}
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
+                <img 
+                  src="/logo.svg" 
+                  alt="SmartBite Logo" 
+                  className="w-10 h-10 object-contain"
+                  onError={(e) => {
+                    // Fallback to gradient background if logo fails to load
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center" style={{display: 'none'}}>
                   <span className="text-white font-bold text-lg">S</span>
                 </div>
                 <div>
@@ -136,7 +150,17 @@ const Sidebar = ({ onClose }) => {
               className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center hover:scale-105 transition-transform"
               title="SmartBite - Go to Home"
             >
-              <span className="text-white font-bold text-xl">S</span>
+              <img 
+                src="/logo.svg" 
+                alt="SmartBite Logo" 
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  // Fallback to text if logo fails to load
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'inline';
+                }}
+              />
+              <span className="text-white font-bold text-xl" style={{display: 'none'}}>S</span>
             </NavLink>
           )}
         </AnimatePresence>
@@ -211,6 +235,7 @@ const Sidebar = ({ onClose }) => {
           <NavLink
             key={item.name}
             to={item.href}
+            end={item.end}
             onClick={onClose}
             className={({ isActive }) =>
               `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative ${

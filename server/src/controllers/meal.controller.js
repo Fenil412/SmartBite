@@ -2,15 +2,63 @@ import { Meal } from "../models/meal.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
 /* ===========================
    CREATE MEAL
 =========================== */
 export const createMeal = asyncHandler(async (req, res) => {
-  const meal = await Meal.create({
+  let imageData = null;
+
+  // Handle image upload if provided
+  if (req.file) {
+    const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
+    if (cloudinaryResponse) {
+      imageData = {
+        publicId: cloudinaryResponse.public_id,
+        url: cloudinaryResponse.secure_url
+      };
+    }
+  }
+
+  // Parse JSON fields if they exist
+  if (req.body.nutrition && typeof req.body.nutrition === 'string') {
+    req.body.nutrition = JSON.parse(req.body.nutrition);
+  }
+
+  // Handle array fields that come as 'field[]' from FormData
+  if (req.body['ingredients[]']) {
+    req.body.ingredients = Array.isArray(req.body['ingredients[]']) 
+      ? req.body['ingredients[]'] 
+      : [req.body['ingredients[]']];
+    delete req.body['ingredients[]'];
+  }
+
+  if (req.body['allergens[]']) {
+    req.body.allergens = Array.isArray(req.body['allergens[]']) 
+      ? req.body['allergens[]'] 
+      : [req.body['allergens[]']];
+    delete req.body['allergens[]'];
+  }
+
+  if (req.body['appliances[]']) {
+    req.body.appliances = Array.isArray(req.body['appliances[]']) 
+      ? req.body['appliances[]'] 
+      : [req.body['appliances[]']];
+    delete req.body['appliances[]'];
+  }
+
+  const mealData = {
     ...req.body,
     createdBy: req.user._id
-  });
+  };
+
+  // Add image data if uploaded
+  if (imageData) {
+    mealData.image = imageData;
+  }
+
+  const meal = await Meal.create(mealData);
 
   return ApiResponse.success(
     res,
@@ -20,7 +68,6 @@ export const createMeal = asyncHandler(async (req, res) => {
     },
     201
   );
-
 });
 
 /* ===========================
@@ -102,6 +149,50 @@ export const updateMeal = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Meal not found or not authorized");
   }
 
+  // Handle image upload if provided
+  if (req.file) {
+    // Delete old image from Cloudinary if exists
+    if (meal.image?.publicId) {
+      await deleteFromCloudinary(meal.image.publicId);
+    }
+
+    // Upload new image
+    const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
+    if (cloudinaryResponse) {
+      req.body.image = {
+        publicId: cloudinaryResponse.public_id,
+        url: cloudinaryResponse.secure_url
+      };
+    }
+  }
+
+  // Parse JSON fields if they exist
+  if (req.body.nutrition && typeof req.body.nutrition === 'string') {
+    req.body.nutrition = JSON.parse(req.body.nutrition);
+  }
+
+  // Handle array fields that come as 'field[]' from FormData
+  if (req.body['ingredients[]']) {
+    req.body.ingredients = Array.isArray(req.body['ingredients[]']) 
+      ? req.body['ingredients[]'] 
+      : [req.body['ingredients[]']];
+    delete req.body['ingredients[]'];
+  }
+
+  if (req.body['allergens[]']) {
+    req.body.allergens = Array.isArray(req.body['allergens[]']) 
+      ? req.body['allergens[]'] 
+      : [req.body['allergens[]']];
+    delete req.body['allergens[]'];
+  }
+
+  if (req.body['appliances[]']) {
+    req.body.appliances = Array.isArray(req.body['appliances[]']) 
+      ? req.body['appliances[]'] 
+      : [req.body['appliances[]']];
+    delete req.body['appliances[]'];
+  }
+
   // Apply updates
   Object.assign(meal, req.body);
   await meal.save();
@@ -155,6 +246,11 @@ export const deleteMeal = asyncHandler(async (req, res) => {
   });
 
   if (!meal) throw new ApiError(404, "Meal not found");
+
+  // Delete image from Cloudinary if exists
+  if (meal.image?.publicId) {
+    await deleteFromCloudinary(meal.image.publicId);
+  }
 
   meal.isActive = false;
   await meal.save();

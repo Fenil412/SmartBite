@@ -10,6 +10,7 @@ const app = express()
 
 const allowedOrigins = [
   "http://localhost:5173",                     // local dev
+  "http://localhost:5174",                     // local dev (alternate port)
   "https://smart-bite-woad.vercel.app",        // deployed frontend
 ];
 

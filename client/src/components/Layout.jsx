@@ -50,7 +50,17 @@ const Layout = () => {
               <Menu className="h-6 w-6" />
             </button>
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
+              <img 
+                src="/logo.svg" 
+                alt="SmartBite Logo" 
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  // Fallback to gradient background if logo fails to load
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'flex';
+                }}
+              />
+              <div className="w-8 h-8 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center" style={{display: 'none'}}>
                 <span className="text-white font-bold text-sm">S</span>
               </div>
               <span className="font-bold text-xl text-gray-900 dark:text-white">SmartBite</span>

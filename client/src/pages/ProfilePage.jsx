@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { User, Camera, Trash2, Save, AlertTriangle, RefreshCw } from 'lucide-react'
+import { User, Camera, Trash2, AlertTriangle, RefreshCw, Edit3, Save, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { userService } from '../services/userService'
@@ -13,19 +13,14 @@ const ProfilePage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [activityStats, setActivityStats] = useState({
-    totalActivities: 0,
-    activeDays: 0,
-    thisWeek: 0,
-    lastActive: null
-  })
-  const [isLoadingStats, setIsLoadingStats] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editData, setEditData] = useState({})
+  const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
     // Fetch latest user data when component mounts
     refreshUserData()
-    fetchActivityStats()
   }, [])
 
   const refreshUserData = async () => {
@@ -40,19 +35,77 @@ const ProfilePage = () => {
     }
   }
 
-  const fetchActivityStats = async () => {
-    setIsLoadingStats(true)
+  const handleEdit = () => {
+    setEditData({
+      fullName: user?.name || '',
+      phone: user?.phone || '',
+      profile: {
+        age: user?.profile?.age || '',
+        heightCm: user?.profile?.heightCm || '',
+        weightKg: user?.profile?.weightKg || '',
+        gender: user?.profile?.gender || 'other',
+        activityLevel: user?.profile?.activityLevel || 'sedentary',
+        goal: user?.profile?.goal || 'maintenance',
+        dietaryPreferences: user?.profile?.dietaryPreferences || [],
+        dietaryRestrictions: user?.profile?.dietaryRestrictions || [],
+        allergies: user?.profile?.allergies || [],
+        medicalNotes: user?.profile?.medicalNotes || ''
+      },
+      preferences: {
+        units: user?.preferences?.units || 'metric',
+        budgetTier: user?.preferences?.budgetTier || 'medium',
+        preferredCuisines: user?.preferences?.preferredCuisines || []
+      },
+      favoriteMeals: user?.favoriteMeals || []
+    })
+    setIsEditing(true)
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
     try {
-      const response = await userService.getActivityStats()
-      if (response.success) {
-        setActivityStats(response.data)
+      // First, update user data with updateUserData API
+      const updateResponse = await userService.updateUserData({
+        fullName: editData.fullName,
+        phone: editData.phone,
+        profile: editData.profile,
+        preferences: editData.preferences
+      })
+
+      if (!updateResponse.success) {
+        throw new Error(updateResponse.message || 'Failed to update user data')
       }
+
+      // Then, store additional data with storeAdditionalData API
+      const additionalDataResponse = await userService.storeAdditionalData({
+        budgetTier: editData.preferences?.budgetTier,
+        preferredCuisines: editData.preferences?.preferredCuisines,
+        units: editData.preferences?.units,
+        dietaryPreferences: editData.profile?.dietaryPreferences,
+        dietaryRestrictions: editData.profile?.dietaryRestrictions,
+        allergies: editData.profile?.allergies,
+        medicalNotes: editData.profile?.medicalNotes,
+        favoriteMeals: editData.favoriteMeals
+      })
+
+      if (!additionalDataResponse.success) {
+        throw new Error(additionalDataResponse.message || 'Failed to store additional data')
+      }
+
+      // Update local user state with the latest data
+      updateUser(updateResponse.data)
+      success('Profile updated successfully!')
+      setIsEditing(false)
     } catch (error) {
-      console.error('Failed to fetch activity stats:', error)
-      // Don't show error to user as this is not critical
+      showError(error.message || 'Failed to update profile')
     } finally {
-      setIsLoadingStats(false)
+      setIsSaving(false)
     }
+  }
+
+  const handleCancel = () => {
+    setIsEditing(false)
+    setEditData({})
   }
 
   const handleAvatarUpload = async (event) => {
@@ -131,18 +184,54 @@ const ProfilePage = () => {
               Manage your account information and preferences
             </p>
           </div>
-          <button
-            onClick={refreshUserData}
-            disabled={isRefreshing}
-            className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
-          >
-            {isRefreshing ? (
-              <LoadingSpinner size="sm" />
+          <div className="flex items-center space-x-3">
+            {!isEditing ? (
+              <>
+                <button
+                  onClick={refreshUserData}
+                  disabled={isRefreshing}
+                  className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
+                >
+                  {isRefreshing ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span>Refresh</span>
+                </button>
+                <button
+                  onClick={handleEdit}
+                  className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  <span>Edit Profile</span>
+                </button>
+              </>
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <>
+                <button
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
+                >
+                  <X className="h-4 w-4" />
+                  <span>Cancel</span>
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  <span>Save Changes</span>
+                </button>
+              </>
             )}
-            <span>Refresh</span>
-          </button>
+          </div>
         </div>
       </motion.div>
 
@@ -223,9 +312,18 @@ const ProfilePage = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Full Name
                   </label>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                    <p className="text-gray-900 dark:text-white">{user?.name || 'Not provided'}</p>
-                  </div>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.fullName || ''}
+                      onChange={(e) => setEditData({...editData, fullName: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  ) : (
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                      <p className="text-gray-900 dark:text-white">{user?.name || 'Not provided'}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -234,6 +332,7 @@ const ProfilePage = () => {
                   </label>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
                     <p className="text-gray-900 dark:text-white">{user?.email}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Email cannot be changed</p>
                   </div>
                 </div>
 
@@ -243,6 +342,7 @@ const ProfilePage = () => {
                   </label>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
                     <p className="text-gray-900 dark:text-white">{user?.username || 'Not set'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Username cannot be changed</p>
                   </div>
                 </div>
 
@@ -250,9 +350,19 @@ const ProfilePage = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Phone Number
                   </label>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                    <p className="text-gray-900 dark:text-white">{user?.phone || 'Not provided'}</p>
-                  </div>
+                  {isEditing ? (
+                    <input
+                      type="tel"
+                      value={editData.phone || ''}
+                      onChange={(e) => setEditData({...editData, phone: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="+1234567890"
+                    />
+                  ) : (
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                      <p className="text-gray-900 dark:text-white">{user?.phone || 'Not provided'}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -295,66 +405,155 @@ const ProfilePage = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Age
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white text-lg font-semibold">
-                        {user.profile.age} years
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editData.profile?.age || ''}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, age: parseInt(e.target.value) || 0}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        min="1"
+                        max="120"
+                      />
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white text-lg font-semibold">
+                          {user.profile.age} years
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Height
+                      Height (cm)
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white text-lg font-semibold">
-                        {user.profile.heightCm}cm
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editData.profile?.heightCm || ''}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, heightCm: parseInt(e.target.value) || 0}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        min="50"
+                        max="300"
+                      />
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white text-lg font-semibold">
+                          {user.profile.heightCm}cm
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Weight
+                      Weight (kg)
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white text-lg font-semibold">
-                        {user.profile.weightKg}kg
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editData.profile?.weightKg || ''}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, weightKg: parseInt(e.target.value) || 0}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        min="20"
+                        max="500"
+                      />
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white text-lg font-semibold">
+                          {user.profile.weightKg}kg
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Gender
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white capitalize">
-                        {user.profile.gender}
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <select
+                        value={editData.profile?.gender || 'other'}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, gender: e.target.value}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white capitalize">
+                          {user.profile.gender}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Activity Level
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white capitalize">
-                        {user.profile.activityLevel?.replace('_', ' ')}
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <select
+                        value={editData.profile?.activityLevel || 'sedentary'}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, activityLevel: e.target.value}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="sedentary">Sedentary</option>
+                        <option value="light">Light</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="active">Active</option>
+                        <option value="very_active">Very Active</option>
+                      </select>
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white capitalize">
+                          {user.profile.activityLevel?.replace('_', ' ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Goal
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white capitalize">
-                        {user.profile.goal?.replace('_', ' ')}
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <select
+                        value={editData.profile?.goal || 'maintenance'}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, goal: e.target.value}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="fat_loss">Fat Loss</option>
+                        <option value="muscle_gain">Muscle Gain</option>
+                        <option value="maintenance">Maintenance</option>
+                      </select>
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white capitalize">
+                          {user.profile.goal?.replace('_', ' ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -372,38 +571,106 @@ const ProfilePage = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Units
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white capitalize">
-                        {user.preferences.units}
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <select
+                        value={editData.preferences?.units || 'metric'}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          preferences: {...editData.preferences, units: e.target.value}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="metric">Metric</option>
+                        <option value="imperial">Imperial</option>
+                      </select>
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white capitalize">
+                          {user.preferences.units}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Budget Tier
                     </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                      <p className="text-gray-900 dark:text-white capitalize">
-                        {user.preferences.budgetTier}
-                      </p>
-                    </div>
+                    {isEditing ? (
+                      <select
+                        value={editData.preferences?.budgetTier || 'medium'}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          preferences: {...editData.preferences, budgetTier: e.target.value}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-gray-900 dark:text-white capitalize">
+                          {user.preferences.budgetTier}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {user.preferences.preferredCuisines?.length > 0 && (
+                  {(user.preferences.preferredCuisines?.length > 0 || isEditing) && (
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Preferred Cuisines
                       </label>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                        <div className="flex flex-wrap gap-2">
-                          {user.preferences.preferredCuisines.map((cuisine, index) => (
-                            <span key={index} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm font-medium">
-                              {cuisine}
-                            </span>
-                          ))}
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Add cuisine (press Enter)"
+                            className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && e.target.value.trim()) {
+                                const newCuisines = [...(editData.preferences?.preferredCuisines || []), e.target.value.trim()];
+                                setEditData({
+                                  ...editData, 
+                                  preferences: {...editData.preferences, preferredCuisines: newCuisines}
+                                });
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            {(editData.preferences?.preferredCuisines || []).map((cuisine, index) => (
+                              <span key={index} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm font-medium flex items-center space-x-1">
+                                <span>{cuisine}</span>
+                                <button
+                                  onClick={() => {
+                                    const newCuisines = editData.preferences.preferredCuisines.filter((_, i) => i !== index);
+                                    setEditData({
+                                      ...editData, 
+                                      preferences: {...editData.preferences, preferredCuisines: newCuisines}
+                                    });
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 ml-1"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {user.preferences.preferredCuisines.map((cuisine, index) => (
+                              <span key={index} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm font-medium">
+                                {cuisine}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -411,76 +678,262 @@ const ProfilePage = () => {
             )}
 
             {/* Dietary Information Card */}
-            {user?.profile && (user.profile.dietaryPreferences?.length > 0 || user.profile.allergies?.length > 0 || user.profile.dietaryRestrictions?.length > 0) && (
+            {(user?.profile && (user.profile.dietaryPreferences?.length > 0 || user.profile.allergies?.length > 0 || user.profile.dietaryRestrictions?.length > 0 || user.profile.medicalNotes || isEditing)) && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
                   Dietary Information
                 </h3>
 
                 <div className="space-y-4">
-                  {user.profile.dietaryPreferences?.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Dietary Preferences
-                      </label>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Dietary Preferences
+                    </label>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Add dietary preference (press Enter)"
+                          className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
+                              const newPrefs = [...(editData.profile?.dietaryPreferences || []), e.target.value.trim()];
+                              setEditData({
+                                ...editData, 
+                                profile: {...editData.profile, dietaryPreferences: newPrefs}
+                              });
+                              e.target.value = '';
+                            }
+                          }}
+                        />
                         <div className="flex flex-wrap gap-2">
-                          {user.profile.dietaryPreferences.map((pref, index) => (
-                            <span key={index} className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium">
-                              {pref}
+                          {(editData.profile?.dietaryPreferences || []).map((pref, index) => (
+                            <span key={index} className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium flex items-center space-x-1">
+                              <span>{pref}</span>
+                              <button
+                                onClick={() => {
+                                  const newPrefs = editData.profile.dietaryPreferences.filter((_, i) => i !== index);
+                                  setEditData({
+                                    ...editData, 
+                                    profile: {...editData.profile, dietaryPreferences: newPrefs}
+                                  });
+                                }}
+                                className="text-green-600 hover:text-green-800 ml-1"
+                              >
+                                ×
+                              </button>
                             </span>
                           ))}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      user.profile.dietaryPreferences?.length > 0 && (
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {user.profile.dietaryPreferences.map((pref, index) => (
+                              <span key={index} className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium">
+                                {pref}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
 
-                  {user.profile.dietaryRestrictions?.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Dietary Restrictions
-                      </label>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Dietary Restrictions
+                    </label>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Add dietary restriction (press Enter)"
+                          className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
+                              const newRestrictions = [...(editData.profile?.dietaryRestrictions || []), e.target.value.trim()];
+                              setEditData({
+                                ...editData, 
+                                profile: {...editData.profile, dietaryRestrictions: newRestrictions}
+                              });
+                              e.target.value = '';
+                            }
+                          }}
+                        />
                         <div className="flex flex-wrap gap-2">
-                          {user.profile.dietaryRestrictions.map((restriction, index) => (
-                            <span key={index} className="px-3 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 rounded-lg text-sm font-medium">
-                              {restriction}
+                          {(editData.profile?.dietaryRestrictions || []).map((restriction, index) => (
+                            <span key={index} className="px-3 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 rounded-lg text-sm font-medium flex items-center space-x-1">
+                              <span>{restriction}</span>
+                              <button
+                                onClick={() => {
+                                  const newRestrictions = editData.profile.dietaryRestrictions.filter((_, i) => i !== index);
+                                  setEditData({
+                                    ...editData, 
+                                    profile: {...editData.profile, dietaryRestrictions: newRestrictions}
+                                  });
+                                }}
+                                className="text-orange-600 hover:text-orange-800 ml-1"
+                              >
+                                ×
+                              </button>
                             </span>
                           ))}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      user.profile.dietaryRestrictions?.length > 0 && (
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {user.profile.dietaryRestrictions.map((restriction, index) => (
+                              <span key={index} className="px-3 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 rounded-lg text-sm font-medium">
+                                {restriction}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
 
-                  {user.profile.allergies?.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Allergies
-                      </label>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Allergies
+                    </label>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Add allergy (press Enter)"
+                          className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
+                              const newAllergies = [...(editData.profile?.allergies || []), e.target.value.trim()];
+                              setEditData({
+                                ...editData, 
+                                profile: {...editData.profile, allergies: newAllergies}
+                              });
+                              e.target.value = '';
+                            }
+                          }}
+                        />
                         <div className="flex flex-wrap gap-2">
-                          {user.profile.allergies.map((allergy, index) => (
-                            <span key={index} className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg text-sm font-medium">
-                              {allergy}
+                          {(editData.profile?.allergies || []).map((allergy, index) => (
+                            <span key={index} className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg text-sm font-medium flex items-center space-x-1">
+                              <span>{allergy}</span>
+                              <button
+                                onClick={() => {
+                                  const newAllergies = editData.profile.allergies.filter((_, i) => i !== index);
+                                  setEditData({
+                                    ...editData, 
+                                    profile: {...editData.profile, allergies: newAllergies}
+                                  });
+                                }}
+                                className="text-red-600 hover:text-red-800 ml-1"
+                              >
+                                ×
+                              </button>
                             </span>
                           ))}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      user.profile.allergies?.length > 0 && (
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {user.profile.allergies.map((allergy, index) => (
+                              <span key={index} className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg text-sm font-medium">
+                                {allergy}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
 
-                  {user.profile.medicalNotes && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Medical Notes
-                      </label>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                        <p className="text-gray-900 dark:text-white">
-                          {user.profile.medicalNotes}
-                        </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Medical Notes
+                    </label>
+                    {isEditing ? (
+                      <textarea
+                        value={editData.profile?.medicalNotes || ''}
+                        onChange={(e) => setEditData({
+                          ...editData, 
+                          profile: {...editData.profile, medicalNotes: e.target.value}
+                        })}
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        rows="3"
+                        placeholder="Any medical notes or conditions..."
+                      />
+                    ) : (
+                      user.profile.medicalNotes && (
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                          <p className="text-gray-900 dark:text-white">
+                            {user.profile.medicalNotes}
+                          </p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Additional Settings Card - for storeAdditionalData API */}
+            {isEditing && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                  Additional Settings
+                </h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Favorite Meals (IDs)
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Add meal ID (press Enter)"
+                        className="w-full bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && e.target.value.trim()) {
+                            const newMeals = [...(editData.favoriteMeals || []), e.target.value.trim()];
+                            setEditData({
+                              ...editData, 
+                              favoriteMeals: newMeals
+                            });
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {(editData.favoriteMeals || []).map((mealId, index) => (
+                          <span key={index} className="px-3 py-1 bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200 rounded-lg text-sm font-medium flex items-center space-x-1">
+                            <span>{mealId}</span>
+                            <button
+                              onClick={() => {
+                                const newMeals = editData.favoriteMeals.filter((_, i) => i !== index);
+                                setEditData({
+                                  ...editData, 
+                                  favoriteMeals: newMeals
+                                });
+                              }}
+                              className="text-purple-600 hover:text-purple-800 ml-1"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
                       </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Add meal IDs from your favorite meals collection
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
@@ -554,86 +1007,7 @@ const ProfilePage = () => {
           </div>
         </motion.div>
       </div>
-      {/* Activity Stats Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.6 }}
-        className="mb-8"
-      >
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            Activity Overview
-          </h3>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm">Total Activities</p>
-                  <p className="text-2xl font-bold">
-                    {isLoadingStats ? '...' : activityStats.totalActivities}
-                  </p>
-                </div>
-                <div className="text-blue-200">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Active Days</p>
-                  <p className="text-2xl font-bold">
-                    {isLoadingStats ? '...' : activityStats.activeDays}
-                  </p>
-                </div>
-                <div className="text-green-200">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm">This Week</p>
-                  <p className="text-2xl font-bold">
-                    {isLoadingStats ? '...' : activityStats.thisWeek}
-                  </p>
-                </div>
-                <div className="text-purple-200">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm">Last Active</p>
-                  <p className="text-lg font-bold">
-                    {isLoadingStats ? '...' : (activityStats.lastActive ? 
-                      new Date(activityStats.lastActive).toLocaleDateString() : 'N/A')}
-                  </p>
-                </div>
-                <div className="text-orange-200">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

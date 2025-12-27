@@ -16,6 +16,12 @@ import ApiTestPage from './pages/ApiTestPage'
 import SettingsPage from './pages/SettingsPage'
 import ProfilePage from './pages/ProfilePage'
 import ActivityPage from './pages/ActivityPage'
+// Meal Pages
+import MealsListPage from './pages/meals/MealsListPage'
+import MealDetailsPage from './pages/meals/MealDetailsPage'
+import CreateMealPage from './pages/meals/CreateMealPage'
+import EditMealPage from './pages/meals/EditMealPage'
+import MyMealsPage from './pages/meals/MyMealsPage'
 import ParticleSystem from './components/ParticleSystem'
 import FloatingActionButton from './components/FloatingActionButton'
 import useThemeStore from './store/themeStore'
@@ -62,6 +68,12 @@ function App() {
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="api-test" element={<ApiTestPage />} />
+              {/* Meal Routes */}
+              <Route path="meals" element={<MealsListPage />} />
+              <Route path="meals/create" element={<CreateMealPage />} />
+              <Route path="meals/my-meals" element={<MyMealsPage />} />
+              <Route path="meals/:mealId" element={<MealDetailsPage />} />
+              <Route path="meals/:mealId/edit" element={<EditMealPage />} />
             </Route>
 
             {/* Catch all route - redirect to home */}
