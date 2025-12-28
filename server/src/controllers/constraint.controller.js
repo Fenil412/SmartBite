@@ -2,7 +2,7 @@ import { Constraint } from "../models/constraint.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { syncUserContextToFlask } from "../services/aiSync.service.js";
+import { triggerUserContextSync } from "../services/aiSync.service.js";
 
 /* ===========================
    CREATE / UPDATE CONSTRAINTS
@@ -36,18 +36,8 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
 
     console.log('🔍 DEBUG: Upserted constraint:', constraint);
 
-    // Sync user context to Flask AI service
-    try {
-        const updatedUserContext = {
-            userId,
-            constraints: constraint
-        };
-        await syncUserContextToFlask(updatedUserContext);
-        console.log('🔍 DEBUG: Successfully synced to Flask');
-    } catch (syncError) {
-        console.error('🔍 DEBUG: Failed to sync user context:', syncError);
-        // Don't fail the request if sync fails
-    }
+    // 🔥 Trigger AI sync when constraints change
+    triggerUserContextSync(userId);
 
     return ApiResponse.success(
         res,

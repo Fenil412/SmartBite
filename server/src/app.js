@@ -68,4 +68,8 @@ app.use("/api/v1", groceryRoutes);
 import mlContractRoutes from "./routes/mlContract.routes.js";
 app.use("/api", mlContractRoutes);
 
+// Error handling middleware (must be last)
+import errorMiddleware from "./middlewares/error.middleware.js";
+app.use(errorMiddleware);
+
 export { app }

@@ -2,7 +2,7 @@ import { Feedback } from "../models/feedback.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { syncUserContextToFlask } from "../services/aiSync.service.js";
+import { triggerUserContextSync } from "../services/aiSync.service.js";
 
 /* ===========================
    SUBMIT FEEDBACK
@@ -27,17 +27,8 @@ export const submitFeedback = asyncHandler(async (req, res) => {
     comment
   });
 
-  // Sync user context to Flask AI service
-  try {
-    const updatedUserContext = {
-      userId: req.user._id,
-      feedback: feedback
-    };
-    await syncUserContextToFlask(updatedUserContext);
-  } catch (syncError) {
-    console.error('Failed to sync user context:', syncError);
-    // Don't fail the request if sync fails
-  }
+  // 🔥 Trigger AI sync when feedback is submitted
+  triggerUserContextSync(req.user._id);
 
   return ApiResponse.success(
     res,

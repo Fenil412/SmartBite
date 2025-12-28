@@ -13,7 +13,11 @@ import {
   notifyPasswordChanged,
   notifyPasswordExpiry
 } from "../services/notification.service.js";
-import { syncUserContextToFlask } from "../services/aiSync.service.js";
+import { syncUserContextToFlask, triggerUserContextSync } from "../services/aiSync.service.js";
+import { buildUserMLContext } from "../services/mlContract.service.js";
+import { Constraint } from "../models/constraint.model.js";
+import { Feedback } from "../models/feedback.model.js";
+import { MealPlan } from "../models/mealPlan.model.js";
 
 
 
@@ -429,45 +433,45 @@ const getMyActivityHistory = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, { activityHistory: user.activityHistory || [] }, 200);
 });
 
-export const getUserProfile = async (req, res) => {
+export const getUserProfile = asyncHandler(async (req, res) => {
+  // Security check for internal endpoint
   if (req.headers["x-internal-key"] !== process.env.NODE_INTERNAL_KEY) {
-    return res.status(401).json({ success: false });
+    return res.status(401).json({ success: false, message: "Unauthorized internal access" });
   }
-  const userId = req.user.id;
 
-  const user = await User.findById(userId);
-  const constraints = await Constraint.findOne({ user: userId });
-  const feedback = await Feedback.find({ user: userId });
-  const adherenceHistory = await Adherence.find({ user: userId });
+  const userId = req.params.userId;
+  
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID required" });
+  }
 
-  const userContext = {
-    user: {
-      id: user._id,
-      age: user.age,
-      heightCm: user.heightCm,
-      weightKg: user.weightKg,
-      gender: user.gender,
-      activityLevel: user.activityLevel,
-      goal: user.goal,
-      dietaryPreferences: user.dietaryPreferences,
-      dietaryRestrictions: user.dietaryRestrictions,
-      allergies: user.allergies,
-      budgetTier: user.budgetTier,
-      preferredCuisines: user.preferredCuisines
-    },
-    constraints,
-    feedback,
-    adherenceHistory
-  };
+  try {
+    // Build comprehensive ML-ready user context
+    const userContext = await buildUserMLContext(userId);
 
-  // 🔥 PUSH ONCE TO FLASK
-  await syncUserContextToFlask(userContext);
+    // 🔥 PUSH ONCE TO FLASK
+    try {
+      await syncUserContextToFlask(userContext);
+      console.log(`✅ User context synced to Flask for user: ${userId}`);
+    } catch (syncError) {
+      console.error(`❌ Failed to sync user context to Flask for user ${userId}:`, syncError.message);
+      // Continue execution - Flask sync failure should not break the API
+    }
 
-  return res.json({
-    success: true,
-    data: userContext
-  });
-};
+    return res.json({
+      success: true,
+      data: userContext,
+      syncedToFlask: true
+    });
+  } catch (error) {
+    console.error(`❌ Failed to build user context for user ${userId}:`, error.message);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to build user context",
+      error: error.message 
+    });
+  }
+});
 
 
 const storeAdditionalData = asyncHandler(async (req, res) => {
@@ -564,6 +568,9 @@ const updateUserData = asyncHandler(async (req, res) => {
 
   await addActivity(user, "UPDATE_USER_DATA", { updatedFields: Object.keys(req.body) });
   await user.save({ validateBeforeSave: false });
+
+  // 🔥 Trigger AI sync when user data changes
+  triggerUserContextSync(userId);
 
   return ApiResponse.success(res, getSafeUser(user), 200);
 });

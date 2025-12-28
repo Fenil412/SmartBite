@@ -11,52 +11,83 @@ export const buildUserMLContext = async (userId) => {
     const user = await User.findById(userId).lean();
     if (!user) throw new Error("User not found");
 
-    const constraints = await Constraint.findOne({ user: userId }).lean();
+    // Get user constraints (with fallback to empty object)
+    const constraints = await Constraint.findOne({ user: userId }).lean() || {};
+
+    // Get recent feedback (limit to 100 most recent)
     const feedback = await Feedback.find({ user: userId })
         .sort({ createdAt: -1 })
         .limit(100)
         .lean();
 
+    // Get recent meal plans for adherence history
     const recentPlans = await MealPlan.find({ user: userId })
         .sort({ createdAt: -1 })
         .limit(5)
+        .populate('days.meals.meal', 'name cuisine mealType nutrition')
         .lean();
+
+    // Build adherence history from meal plans
+    const adherenceHistory = recentPlans.flatMap(plan =>
+        plan.days.flatMap(day =>
+            day.meals
+                .filter(meal => meal.adherence && meal.meal) // Only include meals with adherence data
+                .map(meal => ({
+                    mealId: meal.meal._id,
+                    mealName: meal.meal.name,
+                    cuisine: meal.meal.cuisine,
+                    mealType: meal.mealType,
+                    status: meal.adherence.status,
+                    date: day.date || plan.weekStartDate,
+                    planId: plan._id
+                }))
+        )
+    );
 
     return {
         user: {
             id: user._id,
-            age: user.profile.age,
-            heightCm: user.profile.heightCm,
-            weightKg: user.profile.weightKg,
-            gender: user.profile.gender,
-            activityLevel: user.profile.activityLevel,
-            goal: user.profile.goal,
+            // Profile data with safe fallbacks
+            age: user.profile?.age || null,
+            heightCm: user.profile?.heightCm || null,
+            weightKg: user.profile?.weightKg || null,
+            gender: user.profile?.gender || null,
+            activityLevel: user.profile?.activityLevel || 'moderate',
+            goal: user.profile?.goal || 'maintain',
 
-            dietaryPreferences: user.profile.dietaryPreferences,
-            dietaryRestrictions: user.profile.dietaryRestrictions,
-            allergies: user.profile.allergies,
+            // Dietary information
+            dietaryPreferences: user.profile?.dietaryPreferences || [],
+            dietaryRestrictions: user.profile?.dietaryRestrictions || [],
+            allergies: user.profile?.allergies || [],
 
-            budgetTier: user.preferences.budgetTier,
-            preferredCuisines: user.preferences.preferredCuisines,
+            // Preferences
+            budgetTier: user.preferences?.budgetTier || 'medium',
+            preferredCuisines: user.preferences?.preferredCuisines || [],
+            units: user.preferences?.units || 'metric'
         },
 
-        constraints: constraints || user.constraints || {},
+        constraints: {
+            cookTime: constraints.cookTime || null,
+            skillLevel: constraints.skillLevel || 'beginner',
+            appliances: constraints.appliances || [],
+            cookingDays: constraints.cookingDays || []
+        },
 
         feedback: feedback.map(f => ({
+            id: f._id,
             type: f.type,
             rating: f.rating,
-            meal: f.meal,
+            mealId: f.meal,
+            mealPlanId: f.mealPlan,
+            comment: f.comment || null,
             createdAt: f.createdAt
         })),
 
-        adherenceHistory: recentPlans.flatMap(plan =>
-            plan.days.flatMap(d =>
-                d.meals.map(m => ({
-                    meal: m.meal,
-                    status: m.adherence.status
-                }))
-            )
-        )
+        adherenceHistory: adherenceHistory,
+
+        // Metadata
+        contextGeneratedAt: new Date().toISOString(),
+        dataVersion: '1.0'
     };
 };
 
@@ -66,22 +97,79 @@ export const buildUserMLContext = async (userId) => {
 export const fetchMealCatalogForML = async () => {
     const meals = await Meal.find({ isActive: true })
         .select(
-            "name cuisine mealType nutrition ingredients allergens costLevel cookTime skillLevel appliances embeddingVector"
+            "name cuisine mealType nutrition ingredients allergens costLevel cookTime skillLevel appliances embeddingVector createdBy likedBy"
         )
         .lean();
 
-    return meals.map(m => ({
-        id: m._id,
-        name: m.name,
-        cuisine: m.cuisine,
-        mealType: m.mealType,
-        nutrition: m.nutrition,
-        ingredients: m.ingredients,
-        allergens: m.allergens,
-        costLevel: m.costLevel,
-        cookTime: m.cookTime,
-        skillLevel: m.skillLevel,
-        appliances: m.appliances,
-        embedding: m.embeddingVector || []
+    return meals.map(meal => ({
+        id: meal._id,
+        name: meal.name,
+        cuisine: meal.cuisine || 'unknown',
+        mealType: meal.mealType || 'dinner',
+        
+        // Nutrition with safe fallbacks
+        nutrition: {
+            calories: meal.nutrition?.calories || 0,
+            protein: meal.nutrition?.protein || 0,
+            carbs: meal.nutrition?.carbs || 0,
+            fats: meal.nutrition?.fats || 0,
+            fiber: meal.nutrition?.fiber || 0,
+            sugar: meal.nutrition?.sugar || 0,
+            sodium: meal.nutrition?.sodium || 0,
+            glycemicIndex: meal.nutrition?.glycemicIndex || null
+        },
+        
+        // Ingredients and allergens
+        ingredients: meal.ingredients || [],
+        allergens: meal.allergens || [],
+        
+        // Cooking constraints
+        costLevel: meal.costLevel || 'medium',
+        cookTime: meal.cookTime || 30,
+        skillLevel: meal.skillLevel || 'beginner',
+        appliances: meal.appliances || [],
+        
+        // ML features
+        embedding: meal.embeddingVector || [],
+        
+        // Social features
+        createdBy: meal.createdBy,
+        likeCount: meal.likedBy?.length || 0,
+        
+        // Metadata
+        lastUpdated: meal.updatedAt || meal.createdAt
     }));
+};
+
+/**
+ * Get meal catalog statistics for ML monitoring
+ */
+export const getMealCatalogStats = async () => {
+    const totalMeals = await Meal.countDocuments({ isActive: true });
+    
+    const cuisineStats = await Meal.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$cuisine', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+    ]);
+    
+    const mealTypeStats = await Meal.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$mealType', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+    ]);
+    
+    const skillLevelStats = await Meal.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$skillLevel', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+    ]);
+
+    return {
+        totalMeals,
+        cuisineDistribution: cuisineStats,
+        mealTypeDistribution: mealTypeStats,
+        skillLevelDistribution: skillLevelStats,
+        generatedAt: new Date().toISOString()
+    };
 };
