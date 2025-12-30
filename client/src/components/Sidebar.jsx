@@ -19,7 +19,13 @@ import {
   MessageSquare,
   Bell,
   Sparkles,
-  ShoppingCart
+  ShoppingCart,
+  // AI Icons
+  Bot,
+  Heart,
+  AlertTriangle,
+  FileText,
+  Clock
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
@@ -31,6 +37,7 @@ import { useState } from 'react'
 const navigation = [
   { name: 'Home', href: '/dashboard/home', icon: Home },
   { name: 'Dashboard', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'AI Dashboard', href: '/dashboard/ai', icon: Brain },
   { name: 'Meal Planner', href: '/dashboard/meal-planner', icon: Calendar },
   { name: 'Browse Meals', href: '/dashboard/meals', icon: UtensilsCrossed, end: true },
   { name: 'My Meals', href: '/dashboard/meals/my-meals', icon: ChefHat },
@@ -43,6 +50,17 @@ const navigation = [
   { name: 'Constraints', href: '/dashboard/constraints', icon: Sliders },
   { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+]
+
+// AI Features Navigation
+const aiNavigation = [
+  { name: 'AI Chat', href: '/dashboard/ai/chat', icon: Bot, description: 'Chat with AI nutritionist' },
+  { name: 'Meal Analysis', href: '/dashboard/ai/meal-analysis', icon: BarChart3, description: 'Analyze meal nutrition' },
+  { name: 'Weekly Planner', href: '/dashboard/ai/weekly-plan', icon: Calendar, description: 'Generate weekly meal plans' },
+  { name: 'Health Risk Report', href: '/dashboard/ai/health-risk', icon: AlertTriangle, description: 'Assess health risks' },
+  { name: 'Weekly Summary', href: '/dashboard/ai/weekly-summary', icon: FileText, description: 'Summarize meal plans' },
+  { name: 'Nutrition Impact', href: '/dashboard/ai/nutrition-impact', icon: Heart, description: 'Analyze nutrition impact' },
+  { name: 'AI History', href: '/dashboard/ai/history', icon: Clock, description: 'View AI interactions' },
 ]
 
 const ThemeToggle = () => {
@@ -241,7 +259,8 @@ const Sidebar = ({ onClose }) => {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-6 space-y-1">
+      <nav className="flex-1 px-2 py-6 space-y-1 overflow-y-auto">
+        {/* Main Navigation */}
         {navigation.map((item, index) => (
           <NavLink
             key={item.name}
@@ -302,6 +321,93 @@ const Sidebar = ({ onClose }) => {
             )}
           </NavLink>
         ))}
+
+        {/* AI Features Section */}
+        {shouldShowExpanded && (
+          <AnimatePresence>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="pt-6"
+            >
+              <div className="px-3 mb-3">
+                <div className="flex items-center space-x-2">
+                  <Brain className="h-4 w-4 text-purple-500" />
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    AI Features
+                  </h3>
+                </div>
+              </div>
+              
+              {aiNavigation.map((item, index) => (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative ${
+                      isActive
+                        ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-700 dark:hover:text-purple-300'
+                    }`
+                  }
+                  title={item.description}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <item.icon
+                        className={`h-4 w-4 mr-3 transition-colors ${
+                          isActive
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-400'
+                        }`}
+                      />
+                      <motion.span
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.2, delay: index * 0.03 }}
+                        className="truncate"
+                      >
+                        {item.name}
+                      </motion.span>
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeAiTab"
+                          className="ml-auto w-2 h-2 bg-purple-500 rounded-full"
+                          initial={false}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        )}
+
+        {/* Collapsed AI Quick Access */}
+        {!shouldShowExpanded && (
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <NavLink
+              to="/dashboard/ai/chat"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                  isActive
+                    ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-700 dark:hover:text-purple-300'
+                }`
+              }
+              title="AI Chat - Quick Access"
+            >
+              <Brain className="h-5 w-5" />
+            </NavLink>
+          </div>
+        )}
       </nav>
 
       {/* Footer */}

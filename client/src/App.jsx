@@ -35,6 +35,14 @@ import MealPlannerDashboard from './pages/mealPlan/MealPlannerDashboard'
 import MealPlanDetails from './pages/mealPlan/MealPlanDetails'
 import CreateMealPlan from './pages/mealPlan/CreateMealPlan'
 import EditMealPlan from './pages/mealPlan/EditMealPlan'
+import MealAnalysisPage from './pages/ai/MealAnalysisPage'
+import WeeklyPlanPage from './pages/ai/WeeklyPlanPage'
+import HealthRiskPage from './pages/ai/HealthRiskPage'
+import AiChatPage from './pages/ai/AiChatPage'
+import WeeklySummaryPage from './pages/ai/WeeklySummaryPage'
+import NutritionImpactPage from './pages/ai/NutritionImpactPage'
+import AiHistoryPage from './pages/ai/AiHistoryPage'
+import AiDashboard from './pages/ai/AiDashboard'
 import ParticleSystem from './components/ParticleSystem'
 import FloatingActionButton from './components/FloatingActionButton'
 import useThemeStore from './store/themeStore'
@@ -85,6 +93,15 @@ function App() {
               <Route path="recommendations/history" element={<RecommendationHistoryPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="ai-recommendations" element={<div className="p-8">AI Recommendations Coming Soon</div>} />
+              {/* AI Experience Routes */}
+              <Route path="ai" element={<AiDashboard />} />
+              <Route path="ai/meal-analysis" element={<MealAnalysisPage />} />
+              <Route path="ai/weekly-plan" element={<WeeklyPlanPage />} />
+              <Route path="ai/health-risk" element={<HealthRiskPage />} />
+              <Route path="ai/chat" element={<AiChatPage />} />
+              <Route path="ai/weekly-summary" element={<WeeklySummaryPage />} />
+              <Route path="ai/nutrition-impact" element={<NutritionImpactPage />} />
+              <Route path="ai/history" element={<AiHistoryPage />} />
               <Route path="goals" element={<div className="p-8">Goals Coming Soon</div>} />
               <Route path="history" element={<ActivityPage />} />
               <Route path="profile" element={<ProfilePage />} />

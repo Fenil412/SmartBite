@@ -3,5 +3,6 @@
     "cSpell.words": [
         "pywraplp",
         "SCIP"
-    ]
+    ],
+    "javascript.autoClosingTags": false
 }
