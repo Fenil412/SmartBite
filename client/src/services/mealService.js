@@ -18,6 +18,11 @@ export const mealService = {
     return await api.get(url)
   },
 
+  // Get all meals for ML/AI analysis (returns full meal catalog)
+  getAllMeals: async () => {
+    return await api.get('/ml/meals')
+  },
+
   // Get single meal by ID
   getMealById: async (mealId) => {
     return await api.get(`/meals/${mealId}`)

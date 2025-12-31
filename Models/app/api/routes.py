@@ -90,31 +90,56 @@ def generate_weekly_plan_v3():
     distribution = predict_distribution(profile)
     weekly_cals = optimize_week(targets["dailyCalorieTarget"])
 
-    user_data = resolve_user_context(user_id)
-
-    username = extract_username(user_data)
-
-    if not username:
-        return {
-            "success": False,
-            "message": "Username missing in user context",
-            "data": None
-        }, 400
+    # Try to get user context, with fallback to Node.js API
+    raw_user_ctx = None
+    username = None
     
-    user_ctx = normalize_user_context(user_data)
+    try:
+        # First try to resolve from stored context
+        raw_user_ctx = resolve_user_context(user_id)
+        if raw_user_ctx:
+            username = extract_username(raw_user_ctx)
+    except Exception as e:
+        print(f"⚠️ Could not resolve stored user context: {e}")
 
-    if not user_ctx:
-        return {
-            "success": False,
-            "message": "userData is required",
-            "data": None
-        }, 400
+    # If no username found, try to get from Node.js API
+    if not username:
+        try:
+            node_response = requests.get(
+                f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{user_id}",
+                headers={
+                    "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                },
+                timeout=10
+            )
+            
+            if node_response.status_code == 200:
+                node_data = node_response.json()
+                if node_data.get("success") and node_data.get("data"):
+                    raw_user_ctx = node_data["data"]
+                    username = extract_username(raw_user_ctx)
+                    print(f"✅ Retrieved user context from Node.js API for user: {user_id}")
+            else:
+                print(f"⚠️ Node.js API returned status {node_response.status_code}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch user context from Node.js API: {e}")
+
+    # Use userId as fallback username if still not found
+    if not username:
+        username = user_id
+        print(f"⚠️ Using userId as fallback username: {user_id}")
+
+    user_ctx = normalize_user_context(raw_user_ctx) if raw_user_ctx else {}
 
     weekly_plan = {}
-    for i, day in enumerate(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]):
+    for i, day in enumerate(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]):
         weekly_plan[day] = generate_meals(distribution, profile)
 
-    save_history(username, "weekly_plan", weekly_plan)
+    # Save history using username
+    try:
+        save_history(username, "weekly_plan", weekly_plan)
+    except Exception as e:
+        print(f"⚠️ Could not save weekly plan history: {e}")
 
     return success({
         "userId": body["userId"],
@@ -192,48 +217,67 @@ def generate_response():
             "message": "Empty message"
         }, 400
 
-    # 2️⃣ Resolve stored Node → Flask user context
-    raw_user_ctx = resolve_user_context(user_id)
+    # 2️⃣ Try to get user info from Node.js API if context not available
+    raw_user_ctx = None
+    username = None
+    user_ctx = {}
+    
+    try:
+        # First try to resolve from stored context
+        raw_user_ctx = resolve_user_context(user_id)
+        if raw_user_ctx:
+            username = extract_username(raw_user_ctx)
+            user_ctx = normalize_user_context(raw_user_ctx) or {}
+    except Exception as e:
+        print(f"⚠️ Could not resolve stored user context: {e}")
 
-    if not raw_user_ctx:
-        return {
-            "success": False,
-            "message": "User context not found",
-            "data": None
-        }, 404
-
-    # 3️⃣ Extract username BEFORE normalization
-    username = extract_username(raw_user_ctx)
-
+    # If no username found, try to get from Node.js API
     if not username:
-        return {
-            "success": False,
-            "message": "Username missing in user context",
-            "data": None
-        }, 400
+        try:
+            node_response = requests.get(
+                f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{user_id}",
+                headers={
+                    "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                },
+                timeout=10
+            )
+            
+            if node_response.status_code == 200:
+                node_data = node_response.json()
+                if node_data.get("success") and node_data.get("data"):
+                    raw_user_ctx = node_data["data"]
+                    username = extract_username(raw_user_ctx)
+                    user_ctx = normalize_user_context(raw_user_ctx) or {}
+                    print(f"✅ Retrieved user context from Node.js API for user: {user_id}")
+            else:
+                print(f"⚠️ Node.js API returned status {node_response.status_code}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch user context from Node.js API: {e}")
 
-    # 4️⃣ Normalize user context for AI
-    user_ctx = normalize_user_context(raw_user_ctx)
+    # Use userId as fallback username if still not found
+    if not username:
+        username = user_id
+        print(f"⚠️ Using userId as fallback username: {user_id}")
 
-    # 5️⃣ Language instruction
+    # 3️⃣ Language instruction
     language_instruction = LANGUAGE_PROMPTS.get(
         language, LANGUAGE_PROMPTS["en-US"]
     )
 
-    # 6️⃣ Context block (safe access everywhere)
+    # 4️⃣ Context block (safe access with defaults)
     context_block = f"""
 User Context (use only if relevant):
-Age: {user_ctx.get("age")}
-Goal: {user_ctx.get("goal")}
-Diet: {user_ctx.get("dietaryPreferences")}
-Allergies: {user_ctx.get("allergies")}
-Preferred Cuisines: {user_ctx.get("preferredCuisines")}
-Cooking Time: {user_ctx.get("maxCookTime")} mins
-Avoid meals: {user_ctx.get("skippedMeals")}
-Prefer meals: {user_ctx.get("likedMeals")}
+Age: {user_ctx.get("age", "Not specified")}
+Goal: {user_ctx.get("goal", "Not specified")}
+Diet: {user_ctx.get("dietaryPreferences", "Not specified")}
+Allergies: {user_ctx.get("allergies", "None specified")}
+Preferred Cuisines: {user_ctx.get("preferredCuisines", "Not specified")}
+Cooking Time: {user_ctx.get("maxCookTime", "Not specified")} mins
+Avoid meals: {user_ctx.get("skippedMeals", "None specified")}
+Prefer meals: {user_ctx.get("likedMeals", "None specified")}
 """
 
-    # 7️⃣ System prompt
+    # 5️⃣ System prompt
     system_prompt = f"""
 {DOMAIN_GUARD_PROMPT}
 {language_instruction}
@@ -242,7 +286,8 @@ Prefer meals: {user_ctx.get("likedMeals")}
 You are SmartBite AI.
 - Only answer food, nutrition, health, diet, and meal planning questions
 - Politely refuse all other domains
-- Personalize using user context when helpful
+- Personalize using user context when available
+- If user context is not available, provide general nutrition advice
 - Never provide medical diagnosis
 """
 
@@ -257,7 +302,7 @@ You are SmartBite AI.
         "max_tokens": 600
     }
 
-    # 8️⃣ Call GROQ safely
+    # 6️⃣ Call GROQ safely
     try:
         groq_response = requests.post(
             os.getenv("GROQ_API_URL"),
@@ -287,18 +332,23 @@ You are SmartBite AI.
             )
 
     except Exception as e:
+        print(f"❌ GROQ API Error: {e}")
         reply = "Unable to generate response at the moment."
 
-    # 9️⃣ Save history using USERNAME (not userId)
-    save_history(
-        username,
-        "chat",
-        {
-            "question": message,
-            "answer": reply,
-            "language": language
-        }
-    )
+    # 7️⃣ Save history using USERNAME
+    try:
+        save_history(
+            username,
+            "chat",
+            {
+                "question": message,
+                "answer": reply,
+                "language": language
+            }
+        )
+    except Exception as e:
+        print(f"⚠️ Could not save chat history: {e}")
+        # Continue without saving history
 
     return {
         "success": True,
