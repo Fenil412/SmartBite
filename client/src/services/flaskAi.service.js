@@ -64,12 +64,22 @@ export const flaskAiService = {
     })
   },
 
+  // Get Weekly Plans
+  async getWeeklyPlans(userId) {
+    return await flaskAi.get(`/weekly-plans/${userId}`)
+  },
+
   // Health Risk Report
   async getHealthRiskReport(userId, meals) {
     return await flaskAi.post('/health-risk-report', {
       userId,
       meals
     })
+  },
+
+  // Get Health Risk Reports
+  async getHealthRiskReports(userId) {
+    return await flaskAi.get(`/health-risk-reports/${userId}`)
   },
 
   // AI Chat

@@ -1,4 +1,27 @@
 def normalize_user_context(node_payload: dict) -> dict:
+    # Handle None input gracefully
+    if node_payload is None:
+        return {
+            "userId": None,
+            "age": None,
+            "gender": None,
+            "height": None,
+            "weight": None,
+            "activityLevel": None,
+            "goal": None,
+            "dietaryPreferences": [],
+            "dietaryRestrictions": [],
+            "allergies": [],
+            "preferredCuisines": [],
+            "budgetTier": None,
+            "appliances": [],
+            "maxCookTime": None,
+            "skillLevel": None,
+            "cookingDays": [],
+            "likedMeals": [],
+            "skippedMeals": []
+        }
+    
     user = node_payload.get("user", {})
     constraints = node_payload.get("constraints", {})
     feedback = node_payload.get("feedback", [])

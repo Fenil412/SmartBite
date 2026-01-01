@@ -33,65 +33,137 @@ const AiHistoryPage = () => {
       setError(null)
       const response = await flaskAiService.getHistory(user._id)
       
-      if (response.success) {
-        setHistory(response.data || [])
+      console.log('🔍 Raw API Response:', response) // Debug log
+      
+      if (response.success && response.data) {
+        // Transform API response to match frontend expectations
+        const transformedHistory = (response.data || []).map(item => {
+          const transformed = {
+            ...item,
+            type: item.action || item.type, // Map 'action' to 'type', fallback to existing type
+            timestamp: item.createdAt || item.timestamp, // Map 'createdAt' to 'timestamp', fallback to existing
+            username: item.username || user.username || 'Unknown User'
+          }
+          
+          console.log('🔄 Transforming item:', {
+            original: item,
+            transformed: transformed
+          })
+          
+          return transformed
+        })
+        
+        // Sort by timestamp in descending order (newest first)
+        transformedHistory.sort((a, b) => {
+          const dateA = new Date(a.timestamp)
+          const dateB = new Date(b.timestamp)
+          return dateB - dateA // Newest first
+        })
+        
+        setHistory(transformedHistory)
+        console.log('✅ Final Transformed History:', transformedHistory)
       } else {
-        throw new Error(response.message || 'Failed to load history')
+        console.warn('⚠️ No data in response or unsuccessful:', response)
+        setHistory([])
       }
     } catch (error) {
-      console.error('Failed to load AI history:', error)
+      console.error('❌ Failed to load AI history:', error)
       setError(error.message || 'Failed to load AI history')
+      setHistory([])
     } finally {
       setLoading(false)
     }
   }
 
   const getActivityIcon = (type) => {
+    // Safety check for undefined/null type
+    if (!type) return <FileText className="h-5 w-5" />
+    
     const icons = {
       'meal_analysis': BarChart3,
       'weekly_plan': Calendar,
       'health_risk_report': AlertTriangle,
       'chat': MessageSquare,
-      'Summarize weekly meal': FileText,
-      'nutrition_impact_summary': Heart
+      'nutrition_impact_summary': Heart,
+      'Summarize weekly meal': FileText, // Legacy support
+      // Add mappings for exact API response values
+      'analyze-meals': BarChart3,
+      'generate-weekly-plan': Calendar,
+      'health-risk-report': AlertTriangle,
+      'chat/generateResponse': MessageSquare,
+      'summarize-weekly-meal': FileText,
+      'nutrition-impact-summary': Heart
     }
     const IconComponent = icons[type] || FileText
     return <IconComponent className="h-5 w-5" />
   }
 
   const getActivityColor = (type) => {
+    // Safety check for undefined/null type
+    if (!type) return 'text-gray-600 bg-gray-100'
+    
     const colors = {
-      'meal_analysis': 'text-blue-600 bg-blue-100',
-      'weekly_plan': 'text-green-600 bg-green-100',
-      'health_risk_report': 'text-red-600 bg-red-100',
-      'chat': 'text-purple-600 bg-purple-100',
-      'Summarize weekly meal': 'text-yellow-600 bg-yellow-100',
-      'nutrition_impact_summary': 'text-pink-600 bg-pink-100'
+      'meal_analysis': 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20',
+      'weekly_plan': 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/20',
+      'health_risk_report': 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/20',
+      'chat': 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20',
+      'nutrition_impact_summary': 'text-pink-600 bg-pink-100 dark:text-pink-400 dark:bg-pink-900/20',
+      'Summarize weekly meal': 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20', // Legacy support
+      // Add mappings for exact API response values
+      'analyze-meals': 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20',
+      'generate-weekly-plan': 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/20',
+      'health-risk-report': 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/20',
+      'chat/generateResponse': 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20',
+      'summarize-weekly-meal': 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20',
+      'nutrition-impact-summary': 'text-pink-600 bg-pink-100 dark:text-pink-400 dark:bg-pink-900/20'
     }
-    return colors[type] || 'text-gray-600 bg-gray-100'
+    return colors[type] || 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700'
   }
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    // Safety check for undefined/null dateString
+    if (!dateString) return 'Unknown date'
+    
+    try {
+      const date = new Date(dateString)
+      // Check if date is valid
+      if (isNaN(date.getTime())) return 'Invalid date'
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch (error) {
+      console.error('Error formatting date:', error)
+      return 'Invalid date'
+    }
   }
 
   const getActivityTitle = (type) => {
+    // Safety check for undefined/null type
+    if (!type) return 'Unknown Activity'
+    
     const titles = {
       'meal_analysis': 'Meal Analysis',
-      'weekly_plan': 'Weekly Plan Generation',
+      'weekly_plan': 'Weekly Plan Generation', 
       'health_risk_report': 'Health Risk Report',
       'chat': 'AI Chat',
       'Summarize weekly meal': 'Weekly Meal Summary',
-      'nutrition_impact_summary': 'Nutrition Impact Summary'
+      'nutrition_impact_summary': 'Nutrition Impact Summary',
+      // Add more mappings for exact API response values
+      'analyze-meals': 'Meal Analysis',
+      'generate-weekly-plan': 'Weekly Plan Generation',
+      'health-risk-report': 'Health Risk Report',
+      'chat/generateResponse': 'AI Chat',
+      'summarize-weekly-meal': 'Weekly Meal Summary',
+      'nutrition-impact-summary': 'Nutrition Impact Summary'
     }
-    return titles[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    
+    // Return mapped title or format the raw type
+    return titles[type] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   const filteredHistory = history.filter(item => {
@@ -241,30 +313,40 @@ const AiHistoryPage = () => {
                     
                     {/* Preview content based on type */}
                     <div className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                      {item.type === 'chat' && item.data?.question && (
+                      {(item.type === 'chat' || item.type === 'chat/generateResponse') && item.data?.question && (
                         <p className="line-clamp-2">
                           <span className="font-medium">Q:</span> {item.data.question}
                         </p>
                       )}
-                      {item.type === 'meal_analysis' && item.data?.results && (
+                      {(item.type === 'meal_analysis' || item.type === 'analyze-meals') && item.data && (
                         <p>
-                          Analyzed {item.data.results.length} meal{item.data.results.length !== 1 ? 's' : ''}
+                          Analyzed meal: {item.data.analysis?.[0]?.mealName || 'Meal analysis completed'}
                         </p>
                       )}
-                      {item.type === 'weekly_plan' && item.data?.weeklyPlan && (
+                      {(item.type === 'weekly_plan' || item.type === 'generate-weekly-plan') && item.data?.weeklyPlan && (
                         <p>
                           Generated weekly meal plan with {Object.keys(item.data.weeklyPlan).length} days
                         </p>
                       )}
-                      {item.type === 'health_risk_report' && item.data?.overallRisk && (
+                      {(item.type === 'health_risk_report' || item.type === 'health-risk-report') && item.data && (
                         <p>
-                          Health risk assessment: {item.data.overallRisk} risk level
+                          Health risk assessment: {Array.isArray(item.data.detectedRisks) ? item.data.detectedRisks.length : 0} risks detected
                         </p>
                       )}
-                      {(item.type === 'Summarize weekly meal' || item.type === 'nutrition_impact_summary') && item.data?.summary && (
+                      {(item.type === 'Summarize weekly meal' || item.type === 'summarize-weekly-meal' || item.type === 'nutrition_impact_summary' || item.type === 'nutrition-impact-summary') && item.data && (
                         <p className="line-clamp-2">
-                          {typeof item.data.summary === 'string' ? item.data.summary : 'Summary generated'}
+                          {typeof item.data.summary === 'string' ? item.data.summary.substring(0, 100) + '...' : 'Summary generated'}
                         </p>
+                      )}
+                      {/* Show username if available */}
+                      {item.username && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          User: {item.username}
+                        </p>
+                      )}
+                      {/* Fallback for unknown types or missing data */}
+                      {!item.data && (
+                        <p className="text-gray-500 italic">No preview available</p>
                       )}
                     </div>
 
@@ -307,7 +389,7 @@ const AiHistoryPage = () => {
             </div>
             <div className="p-6">
               <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
-                {JSON.stringify(selectedItem.data, null, 2)}
+                {selectedItem?.data ? JSON.stringify(selectedItem.data, null, 2) : 'No data available'}
               </pre>
             </div>
           </div>

@@ -13,7 +13,8 @@ import {
   Clock,
   Users,
   ChefHat,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -35,9 +36,14 @@ const HealthRiskPage = () => {
   const loadMeals = async () => {
     try {
       setMealsLoading(true)
-      const response = await mealService.getAllMeals() // Use the new getAllMeals endpoint
-      if (response.success) {
-        setMeals(response.data || [])
+      const response = await mealService.getAllMeals() // Use the corrected getAllMeals endpoint
+      if (response.success && response.data?.meals?.docs) {
+        // Handle paginated response structure
+        setMeals(response.data.meals.docs)
+      } else if (response.success && Array.isArray(response.data)) {
+        setMeals(response.data)
+      } else {
+        setMeals([])
       }
     } catch (error) {
       console.error('Failed to load meals:', error)
@@ -64,7 +70,7 @@ const HealthRiskPage = () => {
       
       // Format meal data according to the required structure
       const mealData = {
-        id: selectedMeal.id,
+        id: selectedMeal._id, // Use _id from the meals endpoint
         name: selectedMeal.name,
         mealType: selectedMeal.mealType,
         nutrition: selectedMeal.nutrition,
@@ -74,8 +80,11 @@ const HealthRiskPage = () => {
       
       const response = await flaskAiService.getHealthRiskReport(user._id, [mealData])
       
+      console.log('🔍 Health Risk Response:', response) // Debug log
+      
       if (response.success) {
         setRiskReport(response.data)
+        console.log('✅ Risk report data set:', response.data) // Debug log
       } else {
         throw new Error(response.message || 'Risk analysis failed')
       }
@@ -249,10 +258,10 @@ const HealthRiskPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <AnimatePresence>
               {filteredMeals.map((meal) => {
-                const isSelected = selectedMeal?.id === meal.id
+                const isSelected = selectedMeal?._id === meal._id
                 return (
                   <motion.div
-                    key={meal.id}
+                    key={meal._id}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -343,56 +352,96 @@ const HealthRiskPage = () => {
             </h2>
           </div>
 
-          {/* Summary Totals */}
+          {/* Nutritional Summary */}
           {riskReport.summary && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-6 border border-red-200 dark:border-red-800">
-                <div className="flex items-center space-x-3">
-                  <AlertTriangle className="h-8 w-8 text-red-500" />
-                  <div>
-                    <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-                      {riskReport.summary.highRisk || 0}
-                    </div>
-                    <div className="text-sm text-red-700 dark:text-red-300">High Risk Issues</div>
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <BarChart3 className="h-5 w-5 text-blue-500 mr-2" />
+                Nutritional Summary
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 text-center border border-blue-200 dark:border-blue-800">
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {riskReport.summary.totalCalories || 0}
                   </div>
+                  <div className="text-sm text-blue-700 dark:text-blue-300">Total Calories</div>
                 </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
-                <div className="flex items-center space-x-3">
-                  <Eye className="h-8 w-8 text-yellow-500" />
-                  <div>
-                    <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                      {riskReport.summary.mediumRisk || 0}
-                    </div>
-                    <div className="text-sm text-yellow-700 dark:text-yellow-300">Medium Risk Issues</div>
+                <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 text-center border border-green-200 dark:border-green-800">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {riskReport.summary.totalProtein || 0}g
                   </div>
+                  <div className="text-sm text-green-700 dark:text-green-300">Total Protein</div>
                 </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
-                <div className="flex items-center space-x-3">
-                  <ShieldCheck className="h-8 w-8 text-green-500" />
-                  <div>
-                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                      {riskReport.summary.lowRisk || 0}
-                    </div>
-                    <div className="text-sm text-green-700 dark:text-green-300">Low Risk Issues</div>
+                <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-lg p-4 text-center border border-yellow-200 dark:border-yellow-800">
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {riskReport.summary.totalFiber || 0}g
                   </div>
+                  <div className="text-sm text-yellow-700 dark:text-yellow-300">Total Fiber</div>
+                </div>
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 text-center border border-purple-200 dark:border-purple-800">
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {riskReport.summary.totalSugar || 0}g
+                  </div>
+                  <div className="text-sm text-purple-700 dark:text-purple-300">Total Sugar</div>
+                </div>
+                <div className="bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg p-4 text-center border border-red-200 dark:border-red-800">
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    {riskReport.summary.totalSodium || 0}mg
+                  </div>
+                  <div className="text-sm text-red-700 dark:text-red-300">Total Sodium</div>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Risk Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-6 border border-red-200 dark:border-red-800">
+              <div className="flex items-center space-x-3">
+                <AlertTriangle className="h-8 w-8 text-red-500" />
+                <div>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {riskReport.detectedRisks?.filter(r => r.severity === 'high').length || 0}
+                  </div>
+                  <div className="text-sm text-red-700 dark:text-red-300">High Risk Issues</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
+              <div className="flex items-center space-x-3">
+                <Eye className="h-8 w-8 text-yellow-500" />
+                <div>
+                  <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {riskReport.detectedRisks?.filter(r => r.severity === 'medium').length || 0}
+                  </div>
+                  <div className="text-sm text-yellow-700 dark:text-yellow-300">Medium Risk Issues</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+              <div className="flex items-center space-x-3">
+                <ShieldCheck className="h-8 w-8 text-green-500" />
+                <div>
+                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {riskReport.detectedRisks?.filter(r => r.severity === 'low').length || 0}
+                  </div>
+                  <div className="text-sm text-green-700 dark:text-green-300">Low Risk Issues</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Risk Cards */}
-          {riskReport.risks && riskReport.risks.length > 0 ? (
+          {riskReport.detectedRisks && riskReport.detectedRisks.length > 0 ? (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
                 <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
                 Identified Health Risks
               </h3>
               
-              {riskReport.risks.map((risk, index) => (
+              {riskReport.detectedRisks.map((risk, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, x: -20 }}
@@ -408,7 +457,7 @@ const HealthRiskPage = () => {
                           {risk.type} Risk
                         </h4>
                         <p className="text-gray-600 dark:text-gray-400 text-sm">
-                          {risk.description}
+                          {risk.message}
                         </p>
                       </div>
                     </div>
@@ -419,30 +468,28 @@ const HealthRiskPage = () => {
                   </div>
 
                   {/* Affected Meals */}
-                  {risk.affectedMeals && risk.affectedMeals.length > 0 && (
+                  {risk.meal && (
                     <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Affected Meal:
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {risk.affectedMeals.map((mealName, i) => (
-                          <span key={i} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-sm">
-                            {mealName}
-                          </span>
-                        ))}
+                        <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-sm">
+                          {risk.meal}
+                        </span>
                       </div>
                     </div>
                   )}
 
-                  {/* Recommendations */}
-                  {risk.recommendations && risk.recommendations.length > 0 && (
+                  {/* Recommendations - Only show for first risk to avoid duplication */}
+                  {riskReport.recommendations && riskReport.recommendations.length > 0 && index === 0 && (
                     <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                         <ShieldCheck className="h-4 w-4 text-green-500 mr-2" />
-                        Recommendations:
+                        General Recommendations:
                       </div>
                       <ul className="space-y-2">
-                        {risk.recommendations.map((rec, i) => (
+                        {riskReport.recommendations.map((rec, i) => (
                           <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start">
                             <span className="text-green-500 mr-2 mt-0.5">•</span>
                             {rec}
@@ -478,6 +525,24 @@ const HealthRiskPage = () => {
                   <li key={index} className="text-gray-700 dark:text-gray-300 flex items-start">
                     <span className="text-blue-500 mr-3 mt-1">💡</span>
                     <span className="leading-relaxed">{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Recommendations Section - Always show when available */}
+          {riskReport.recommendations && riskReport.recommendations.length > 0 && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <ShieldCheck className="h-5 w-5 text-green-500 mr-2" />
+                AI Recommendations
+              </h3>
+              <ul className="space-y-3">
+                {riskReport.recommendations.map((rec, index) => (
+                  <li key={index} className="text-gray-700 dark:text-gray-300 flex items-start">
+                    <span className="text-green-500 mr-3 mt-1">✓</span>
+                    <span className="leading-relaxed">{rec}</span>
                   </li>
                 ))}
               </ul>

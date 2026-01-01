@@ -34,8 +34,11 @@ const MealAnalysisPage = () => {
   const loadMeals = async () => {
     try {
       setMealsLoading(true)
-      const response = await mealService.getAllMeals() // Use the new getAllMeals endpoint
-      if (response.success && Array.isArray(response.data)) {
+      const response = await mealService.getAllMeals() // Use the corrected getAllMeals endpoint
+      if (response.success && response.data?.meals?.docs) {
+        // Handle paginated response structure
+        setMeals(response.data.meals.docs)
+      } else if (response.success && Array.isArray(response.data)) {
         setMeals(response.data)
       } else {
         setMeals([])
@@ -66,7 +69,7 @@ const MealAnalysisPage = () => {
       
       // Format meal data according to the required structure
       const mealData = {
-        id: selectedMeal.id,
+        id: selectedMeal._id, // Use _id from the meals endpoint
         name: selectedMeal.name,
         mealType: selectedMeal.mealType,
         nutrition: selectedMeal.nutrition,
@@ -76,8 +79,11 @@ const MealAnalysisPage = () => {
       
       const response = await flaskAiService.analyzeMeals(user._id, [mealData])
       
+      console.log('🔍 Meal Analysis Response:', response) // Debug log
+      
       if (response.success) {
         setAnalysis(response.data)
+        console.log('✅ Analysis data set:', response.data) // Debug log
       } else {
         throw new Error(response.message || 'Analysis failed')
       }
@@ -240,10 +246,10 @@ const MealAnalysisPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <AnimatePresence>
               {filteredMeals.map((meal) => {
-                const isSelected = selectedMeal?.id === meal.id
+                const isSelected = selectedMeal?._id === meal._id
                 return (
                   <motion.div
-                    key={meal.id}
+                    key={meal._id}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -333,14 +339,14 @@ const MealAnalysisPage = () => {
           </div>
 
           {/* Single Meal Analysis Result */}
-          {analysis.results?.[0] && (
+          {analysis.analysis?.[0] && (
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <div className="flex items-center space-x-3">
                   <span className="text-2xl">{getMealTypeIcon(selectedMeal?.mealType)}</span>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {analysis.results[0].mealName || selectedMeal?.name}
+                      {analysis.analysis[0].mealName || selectedMeal?.name}
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400 capitalize">
                       {selectedMeal?.cuisine} • {selectedMeal?.mealType}
@@ -351,25 +357,25 @@ const MealAnalysisPage = () => {
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
                     <div className="text-sm text-gray-500 dark:text-gray-400">Health Score</div>
-                    <div className={`text-3xl font-bold ${getHealthScoreColor(analysis.results[0].healthScore || 0)}`}>
-                      {analysis.results[0].healthScore || 0}/100
+                    <div className={`text-3xl font-bold ${getHealthScoreColor(analysis.analysis[0].healthScore || 0)}`}>
+                      {analysis.analysis[0].healthScore || 0}/100
                     </div>
                   </div>
-                  <span className={`px-4 py-2 rounded-full text-sm font-medium ${getVerdictBadge(analysis.results[0].verdict)}`}>
-                    {analysis.results[0].verdict || 'Unknown'}
+                  <span className={`px-4 py-2 rounded-full text-sm font-medium ${getVerdictBadge(analysis.analysis[0].verdict)}`}>
+                    {analysis.analysis[0].verdict || 'Unknown'}
                   </span>
                 </div>
               </div>
 
               {/* Warnings */}
-              {analysis.results[0].warnings && analysis.results[0].warnings.length > 0 && (
+              {analysis.analysis[0].warnings && analysis.analysis[0].warnings.length > 0 && (
                 <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                   <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
                     <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
                     Health Warnings
                   </h4>
                   <ul className="space-y-2">
-                    {analysis.results[0].warnings.map((warning, i) => (
+                    {analysis.analysis[0].warnings.map((warning, i) => (
                       <li key={i} className="text-sm text-yellow-800 dark:text-yellow-200 flex items-start">
                         <span className="text-yellow-500 mr-2 mt-0.5">•</span>
                         {warning}
@@ -380,14 +386,14 @@ const MealAnalysisPage = () => {
               )}
 
               {/* Nutrition Breakdown */}
-              {analysis.results[0].nutrition && (
+              {analysis.analysis[0].nutrition && (
                 <div className="mb-6">
                   <h4 className="font-medium text-gray-900 dark:text-white mb-4 flex items-center">
                     <BarChart3 className="h-5 w-5 text-blue-500 mr-2" />
                     Detailed Nutrition Breakdown
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-                    {Object.entries(analysis.results[0].nutrition).map(([key, value]) => (
+                    {Object.entries(analysis.analysis[0].nutrition).map(([key, value]) => (
                       <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
                         <div className="text-xs text-gray-500 dark:text-gray-400 capitalize mb-1">
                           {key === 'fats' ? 'Fat' : key}

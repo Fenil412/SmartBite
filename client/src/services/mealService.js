@@ -20,7 +20,8 @@ export const mealService = {
 
   // Get all meals for ML/AI analysis (returns full meal catalog)
   getAllMeals: async () => {
-    return await api.get('/ml/meals')
+    // Get all meals with a high limit to fetch the complete catalog
+    return await api.get('/meals?limit=1000')
   },
 
   // Get single meal by ID

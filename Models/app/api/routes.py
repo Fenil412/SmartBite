@@ -6,6 +6,7 @@ from app.services.nutrition_engine import analyze_meals_service
 from app.services.risk_analyzer import health_risk_report
 from app.services.groq_service import chat_ai
 from app.services.history_service import save_history, fetch_history
+from app.db.mongo import history_collection
 from app.models.schemas import MealPayload
 from app.services.ml_model import predict_distribution
 from app.services.weekly_optimizer import optimize_week
@@ -50,31 +51,62 @@ def analyze():
     user_id = body["userId"]
     meals = body["meals"]
 
-    user_data = resolve_user_context(user_id)
-
     if not meals:
         return {
             "success": False,
             "message": "meals are required",
             "data": None
         }, 400
+
+    # Try to get user context, with fallback to Node.js API
+    raw_user_ctx = None
+    username = None
     
-    username = extract_username(user_data)
+    try:
+        # First try to resolve from stored context
+        raw_user_ctx = resolve_user_context(user_id)
+        if raw_user_ctx:
+            username = extract_username(raw_user_ctx)
+    except Exception as e:
+        print(f"⚠️ Could not resolve stored user context: {e}")
 
+    # If no username found, try to get from Node.js API
     if not username:
-        return {
-            "success": False,
-            "message": "Username missing in user context",
-            "data": None
-        }, 400
+        try:
+            node_response = requests.get(
+                f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{user_id}",
+                headers={
+                    "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                },
+                timeout=10
+            )
+            
+            if node_response.status_code == 200:
+                node_data = node_response.json()
+                if node_data.get("success") and node_data.get("data"):
+                    raw_user_ctx = node_data["data"]
+                    username = extract_username(raw_user_ctx)
+                    print(f"✅ Retrieved user context from Node.js API for user: {user_id}")
+            else:
+                print(f"⚠️ Node.js API returned status {node_response.status_code}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch user context from Node.js API: {e}")
 
-    result = analyze_meals_service(meals, user_data["nodeData"])
+    # Use userId as fallback username if still not found
+    if not username:
+        username = user_id
+        print(f"⚠️ Using userId as fallback username: {user_id}")
 
-    save_history(
-        username,
-        "meal_analysis",
-        result
-    )
+    # Use raw_user_ctx if available, otherwise create minimal context
+    user_data = raw_user_ctx if raw_user_ctx else {"nodeData": {}}
+    
+    result = analyze_meals_service(meals, user_data.get("nodeData", {}))
+
+    # Save history using username
+    try:
+        save_history(username, "meal_analysis", result)
+    except Exception as e:
+        print(f"⚠️ Could not save meal analysis history: {e}")
 
     return success(result)
 
@@ -160,38 +192,59 @@ def risk():
             "data": None
         }, 400
 
-    # 1️⃣ Resolve user context
-    user_ctx = resolve_user_context(user_id)
+    # Try to get user context, with fallback to Node.js API
+    raw_user_ctx = None
+    username = None
+    
+    try:
+        # First try to resolve from stored context
+        raw_user_ctx = resolve_user_context(user_id)
+        if raw_user_ctx:
+            username = extract_username(raw_user_ctx)
+    except Exception as e:
+        print(f"⚠️ Could not resolve stored user context: {e}")
 
-    if not user_ctx:
-        return {
-            "success": False,
-            "message": "User context not found",
-            "data": None
-        }, 404
-
-    # 2️⃣ Extract username (CORRECT PATH)
-    username = extract_username(user_ctx)
-
+    # If no username found, try to get from Node.js API
     if not username:
-        return {
-            "success": False,
-            "message": "Username missing in user context",
-            "data": None
-        }, 400
+        try:
+            node_response = requests.get(
+                f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{user_id}",
+                headers={
+                    "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                },
+                timeout=10
+            )
+            
+            if node_response.status_code == 200:
+                node_data = node_response.json()
+                if node_data.get("success") and node_data.get("data"):
+                    raw_user_ctx = node_data["data"]
+                    username = extract_username(raw_user_ctx)
+                    print(f"✅ Retrieved user context from Node.js API for user: {user_id}")
+            else:
+                print(f"⚠️ Node.js API returned status {node_response.status_code}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch user context from Node.js API: {e}")
 
-    # 3️⃣ Run risk analysis using nodeData
+    # Use userId as fallback username if still not found
+    if not username:
+        username = user_id
+        print(f"⚠️ Using userId as fallback username: {user_id}")
+
+    # Use raw_user_ctx if available, otherwise create minimal context
+    user_data = raw_user_ctx if raw_user_ctx else {"nodeData": {}}
+
+    # Run risk analysis using nodeData
     report = health_risk_report(
         meals,
-        user_ctx["nodeData"]     # 👈 IMPORTANT
+        user_data.get("nodeData", {})
     )
 
-    # 4️⃣ Save history by username
-    save_history(
-        username,
-        "health_risk_report",
-        report
-    )
+    # Save history using username
+    try:
+        save_history(username, "health_risk_report", report)
+    except Exception as e:
+        print(f"⚠️ Could not save health risk report history: {e}")
 
     return success(report)
 
@@ -360,32 +413,142 @@ You are SmartBite AI.
 def history(userId):
     return success(fetch_history(userId))
 
+@api.route("/weekly-plans/<userId>")
+def get_weekly_plans(userId):
+    """Get all weekly plans for a specific user"""
+    try:
+        # Try to get user context to find username
+        raw_user_ctx = None
+        username = None
+        
+        try:
+            # First try to resolve from stored context
+            raw_user_ctx = resolve_user_context(userId)
+            if raw_user_ctx:
+                username = extract_username(raw_user_ctx)
+        except Exception as e:
+            print(f"⚠️ Could not resolve stored user context: {e}")
+
+        # If no username found, try to get from Node.js API
+        if not username:
+            try:
+                node_response = requests.get(
+                    f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{userId}",
+                    headers={
+                        "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                    },
+                    timeout=10
+                )
+                
+                if node_response.status_code == 200:
+                    node_data = node_response.json()
+                    if node_data.get("success") and node_data.get("data"):
+                        raw_user_ctx = node_data["data"]
+                        username = extract_username(raw_user_ctx)
+                        print(f"✅ Retrieved user context from Node.js API for user: {userId}")
+                else:
+                    print(f"⚠️ Node.js API returned status {node_response.status_code}")
+            except Exception as e:
+                print(f"⚠️ Could not fetch user context from Node.js API: {e}")
+
+        # Use userId as fallback username if still not found
+        if not username:
+            username = userId
+            print(f"⚠️ Using userId as fallback username: {userId}")
+
+        # Fetch weekly plans from history
+        weekly_plans = list(
+            history_collection.find(
+                {
+                    "username": username,
+                    "action": "weekly_plan"
+                },
+                {"_id": 0}
+            ).sort("createdAt", -1)  # Sort by newest first
+        )
+        
+        print(f"📅 Found {len(weekly_plans)} weekly plans for user {username}")
+        return success(weekly_plans)
+        
+    except Exception as e:
+        print(f"❌ Error fetching weekly plans: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to fetch weekly plans: {str(e)}",
+            "data": []
+        }, 500
+
+@api.route("/health-risk-reports/<userId>")
+def get_health_risk_reports(userId):
+    """Get all health risk reports for a specific user"""
+    try:
+        # Try to get user context to find username
+        raw_user_ctx = None
+        username = None
+        
+        try:
+            # First try to resolve from stored context
+            raw_user_ctx = resolve_user_context(userId)
+            if raw_user_ctx:
+                username = extract_username(raw_user_ctx)
+        except Exception as e:
+            print(f"⚠️ Could not resolve stored user context: {e}")
+
+        # If no username found, try to get from Node.js API
+        if not username:
+            try:
+                node_response = requests.get(
+                    f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{userId}",
+                    headers={
+                        "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                    },
+                    timeout=10
+                )
+                
+                if node_response.status_code == 200:
+                    node_data = node_response.json()
+                    if node_data.get("success") and node_data.get("data"):
+                        raw_user_ctx = node_data["data"]
+                        username = extract_username(raw_user_ctx)
+                        print(f"✅ Retrieved user context from Node.js API for user: {userId}")
+                else:
+                    print(f"⚠️ Node.js API returned status {node_response.status_code}")
+            except Exception as e:
+                print(f"⚠️ Could not fetch user context from Node.js API: {e}")
+
+        # Use userId as fallback username if still not found
+        if not username:
+            username = userId
+            print(f"⚠️ Using userId as fallback username: {userId}")
+
+        # Fetch health risk reports from history
+        health_risk_reports = list(
+            history_collection.find(
+                {
+                    "username": username,
+                    "action": "health_risk_report"
+                },
+                {"_id": 0}
+            ).sort("createdAt", -1)  # Sort by newest first
+        )
+        
+        print(f"🏥 Found {len(health_risk_reports)} health risk reports for user {username}")
+        return success(health_risk_reports)
+        
+    except Exception as e:
+        print(f"❌ Error fetching health risk reports: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to fetch health risk reports: {str(e)}",
+            "data": []
+        }, 500
+
 @api.route("/summarize-weekly-meal", methods=["POST"])
 def summarize_weekly_meal():
     body = request.json
 
     user_id = body.get("userId")
     weekly_plan = body.get("weeklyPlan")
-
-    user_data = resolve_user_context(user_id)
-    user_ctx = normalize_user_context(user_data)
-
-    if not user_ctx:
-        return {
-            "success": False,
-            "message": "userData is required",
-            "data": None
-        }, 400
-    
-    username = extract_username(user_ctx)
-
-    if not username:
-        return {
-            "success": False,
-            "message": "Username missing in user context",
-            "data": None
-        }, 400
-
 
     if not user_id or not weekly_plan:
         return {
@@ -394,13 +557,78 @@ def summarize_weekly_meal():
             "data": None
         }, 400
 
+    # Try to get user context, with fallback to Node.js API (same as other endpoints)
+    raw_user_ctx = None
+    username = None
+    
+    try:
+        # First try to resolve from stored context
+        raw_user_ctx = resolve_user_context(user_id)
+        if raw_user_ctx:
+            username = extract_username(raw_user_ctx)
+    except Exception as e:
+        print(f"⚠️ Could not resolve stored user context: {e}")
+
+    # If no username found, try to get from Node.js API
+    if not username:
+        try:
+            node_response = requests.get(
+                f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{user_id}",
+                headers={
+                    "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                },
+                timeout=10
+            )
+            
+            if node_response.status_code == 200:
+                node_data = node_response.json()
+                if node_data.get("success") and node_data.get("data"):
+                    raw_user_ctx = node_data["data"]
+                    username = extract_username(raw_user_ctx)
+                    print(f"✅ Retrieved user context from Node.js API for user: {user_id}")
+            else:
+                print(f"⚠️ Node.js API returned status {node_response.status_code}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch user context from Node.js API: {e}")
+
+    # Use userId as fallback username if still not found
+    if not username:
+        username = user_id
+        print(f"⚠️ Using userId as fallback username: {user_id}")
+
+    # Use raw_user_ctx if available, otherwise create minimal context
+    if raw_user_ctx:
+        user_ctx = normalize_user_context(raw_user_ctx)
+    else:
+        # Create minimal context when no user context is available
+        user_ctx = {
+            "userId": user_id,
+            "age": None,
+            "gender": None,
+            "height": None,
+            "weight": None,
+            "activityLevel": None,
+            "goal": None,
+            "dietaryPreferences": [],
+            "dietaryRestrictions": [],
+            "allergies": [],
+            "preferredCuisines": [],
+            "budgetTier": None,
+            "appliances": [],
+            "maxCookTime": None,
+            "skillLevel": None,
+            "cookingDays": [],
+            "likedMeals": [],
+            "skippedMeals": []
+        }
+
     summary = generate_weekly_summary(user_id, weekly_plan)
 
-    save_history(
-        username,
-        "Summarize weekly meal",
-        summary
-    )
+    # Save history using username
+    try:
+        save_history(username, "Summarize weekly meal", summary)
+    except Exception as e:
+        print(f"⚠️ Could not save weekly summary history: {e}")
 
     return success({
         "summary": summary
@@ -408,7 +636,6 @@ def summarize_weekly_meal():
 
 @api.route("/nutrition-impact-summary", methods=["POST"])
 def nutrition_impact_summary():
-
     body = request.json or {}
     user_id = body.get("userId")
     weekly_plan = body.get("weeklyPlan")
@@ -417,16 +644,73 @@ def nutrition_impact_summary():
     if not user_id:
         return {"success": False, "message": "userId required"}, 400
 
-    user_data = resolve_user_context(user_id)
+    if not weekly_plan or not health_risk:
+        return {"success": False, "message": "weeklyPlan and healthRiskReport are required"}, 400
 
-    username = extract_username(user_data)
-    if not username:
-        return {"success": False, "message": "Username missing in user context"}, 400
+    # Try to get user context, with fallback to Node.js API (same as other endpoints)
+    raw_user_ctx = None
+    username = None
     
-    user_ctx = normalize_user_context(user_data)
+    try:
+        # First try to resolve from stored context
+        raw_user_ctx = resolve_user_context(user_id)
+        if raw_user_ctx:
+            username = extract_username(raw_user_ctx)
+    except Exception as e:
+        print(f"⚠️ Could not resolve stored user context: {e}")
 
-    if not user_ctx:
-        return {"success": False, "message": "User context not found"}, 404
+    # If no username found, try to get from Node.js API
+    if not username:
+        try:
+            node_response = requests.get(
+                f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{user_id}",
+                headers={
+                    "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                },
+                timeout=10
+            )
+            
+            if node_response.status_code == 200:
+                node_data = node_response.json()
+                if node_data.get("success") and node_data.get("data"):
+                    raw_user_ctx = node_data["data"]
+                    username = extract_username(raw_user_ctx)
+                    print(f"✅ Retrieved user context from Node.js API for user: {user_id}")
+            else:
+                print(f"⚠️ Node.js API returned status {node_response.status_code}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch user context from Node.js API: {e}")
+
+    # Use userId as fallback username if still not found
+    if not username:
+        username = user_id
+        print(f"⚠️ Using userId as fallback username: {user_id}")
+
+    # Use raw_user_ctx if available, otherwise create minimal context
+    if raw_user_ctx:
+        user_ctx = normalize_user_context(raw_user_ctx)
+    else:
+        # Create minimal context when no user context is available
+        user_ctx = {
+            "userId": user_id,
+            "age": None,
+            "gender": None,
+            "height": None,
+            "weight": None,
+            "activityLevel": None,
+            "goal": None,
+            "dietaryPreferences": [],
+            "dietaryRestrictions": [],
+            "allergies": [],
+            "preferredCuisines": [],
+            "budgetTier": None,
+            "appliances": [],
+            "maxCookTime": None,
+            "skillLevel": None,
+            "cookingDays": [],
+            "likedMeals": [],
+            "skippedMeals": []
+        }
 
     summary = generate_nutrition_impact(
         user_ctx=user_ctx,
@@ -434,10 +718,10 @@ def nutrition_impact_summary():
         health_risk=health_risk["data"]
     )
 
-    save_history(
-        username,
-        "nutrition_impact_summary",
-        summary
-    )
+    # Save history using username
+    try:
+        save_history(username, "nutrition_impact_summary", summary)
+    except Exception as e:
+        print(f"⚠️ Could not save nutrition impact summary history: {e}")
 
     return success(summary)
