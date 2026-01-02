@@ -79,16 +79,12 @@ const MealAnalysisPage = () => {
       
       const response = await flaskAiService.analyzeMeals(user._id, [mealData])
       
-      console.log('🔍 Meal Analysis Response:', response) // Debug log
-      
       if (response.success) {
         setAnalysis(response.data)
-        console.log('✅ Analysis data set:', response.data) // Debug log
       } else {
         throw new Error(response.message || 'Analysis failed')
       }
     } catch (error) {
-      console.error('Meal analysis failed:', error)
       setError(error.message || 'Failed to analyze meal')
     } finally {
       setLoading(false)

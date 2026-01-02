@@ -87,9 +87,6 @@ const EditMealPlan = () => {
   }
 
   const handleMealSelect = (day, mealType, meal) => {
-    console.log('🔍 DEBUG: EditMealPlan - handleMealSelect called', { day, mealType, mealName: meal.name })
-    console.log('🔍 DEBUG: EditMealPlan - Current formData before update:', formData.days[day][mealType].length, 'meals')
-    
     setFormData(prev => ({
       ...prev,
       days: {
@@ -100,8 +97,6 @@ const EditMealPlan = () => {
         }
       }
     }))
-    
-    console.log('🔍 DEBUG: EditMealPlan - Meal added to local state only - NO API CALL')
   }
 
   const handleMealRemove = (day, mealType, index) => {
@@ -171,20 +166,14 @@ const EditMealPlan = () => {
     e.preventDefault()
     e.stopPropagation()
     
-    console.log('🔍 DEBUG: EditMealPlan - handleSubmit called - Form submission started')
-    console.log('🔍 DEBUG: EditMealPlan - isSubmitting state:', isSubmitting)
-    
     if (isSubmitting) {
-      console.log('🔍 DEBUG: EditMealPlan - Already submitting, preventing duplicate submission')
       return
     }
     
     if (!validateForm()) {
-      console.log('🔍 DEBUG: EditMealPlan - Form validation failed, not submitting')
       return
     }
 
-    console.log('🔍 DEBUG: EditMealPlan - Starting API call to update meal plan')
     setIsSubmitting(true)
     
     try {
@@ -208,21 +197,15 @@ const EditMealPlan = () => {
         nutritionSummary
       }
 
-      console.log('🔍 DEBUG: EditMealPlan - Sending API request with data:', planData)
-      console.log('🔍 DEBUG: EditMealPlan - Plan title being sent:', formData.title)
       const response = await mealPlanService.updateMealPlan(planId, planData)
-      console.log('🔍 DEBUG: EditMealPlan - API response received:', response)
       
       if (response.success) {
         success('Meal plan updated successfully!')
-        console.log('🔍 DEBUG: EditMealPlan - Navigating to meal plan details')
         navigate(`/dashboard/meal-planner/${planId}`)
       }
     } catch (err) {
-      console.error('🔍 DEBUG: EditMealPlan - API call failed:', err)
       error(err.message || 'Failed to update meal plan')
     } finally {
-      console.log('🔍 DEBUG: EditMealPlan - Setting isSubmitting to false')
       setIsSubmitting(false)
     }
   }
@@ -285,7 +268,6 @@ const EditMealPlan = () => {
         // Prevent form submission on Enter key unless it's the submit button
         if (e.key === 'Enter' && e.target.type !== 'submit') {
           e.preventDefault()
-          console.log('🔍 DEBUG: EditMealPlan - Enter key pressed - prevented form submission')
         }
       }} className="space-y-8">
         {/* Basic Information */}

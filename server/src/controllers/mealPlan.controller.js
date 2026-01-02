@@ -35,9 +35,6 @@ export const createMealPlan = asyncHandler(async (req, res) => {
     // Add title if provided, otherwise use model default
     if (title && title.trim()) {
         planData.title = title.trim();
-        console.log('🔍 DEBUG: Creating meal plan with custom title:', title.trim());
-    } else {
-        console.log('🔍 DEBUG: Creating meal plan with default title (no custom title provided)');
     }
 
     const plan = await MealPlan.create(planData);
@@ -76,7 +73,6 @@ export const updateMealPlan = asyncHandler(async (req, res) => {
     // Update title if provided
     if (title !== undefined) {
         const newTitle = title.trim() || "Weekly Meal Plan";
-        console.log('🔍 DEBUG: Updating meal plan title from:', plan.title, 'to:', newTitle);
         plan.title = newTitle;
     }
 

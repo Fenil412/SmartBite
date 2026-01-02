@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   Calendar,
   Trash2,
-  Eye
+  Eye,
+  Filter,
+  ChevronDown
 } from 'lucide-react'
 
 const AiHistoryPage = () => {
@@ -18,7 +20,9 @@ const AiHistoryPage = () => {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filter, setFilter] = useState('all')
+  const [timeFilter, setTimeFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
 
   useEffect(() => {
@@ -33,8 +37,6 @@ const AiHistoryPage = () => {
       setError(null)
       const response = await flaskAiService.getHistory(user._id)
       
-      console.log('🔍 Raw API Response:', response) // Debug log
-      
       if (response.success && response.data) {
         // Transform API response to match frontend expectations
         const transformedHistory = (response.data || []).map(item => {
@@ -44,12 +46,6 @@ const AiHistoryPage = () => {
             timestamp: item.createdAt || item.timestamp, // Map 'createdAt' to 'timestamp', fallback to existing
             username: item.username || user.username || 'Unknown User'
           }
-          
-          console.log('🔄 Transforming item:', {
-            original: item,
-            transformed: transformed
-          })
-          
           return transformed
         })
         
@@ -61,13 +57,10 @@ const AiHistoryPage = () => {
         })
         
         setHistory(transformedHistory)
-        console.log('✅ Final Transformed History:', transformedHistory)
       } else {
-        console.warn('⚠️ No data in response or unsuccessful:', response)
         setHistory([])
       }
     } catch (error) {
-      console.error('❌ Failed to load AI history:', error)
       setError(error.message || 'Failed to load AI history')
       setHistory([])
     } finally {
@@ -76,7 +69,6 @@ const AiHistoryPage = () => {
   }
 
   const getActivityIcon = (type) => {
-    // Safety check for undefined/null type
     if (!type) return <FileText className="h-5 w-5" />
     
     const icons = {
@@ -85,8 +77,7 @@ const AiHistoryPage = () => {
       'health_risk_report': AlertTriangle,
       'chat': MessageSquare,
       'nutrition_impact_summary': Heart,
-      'Summarize weekly meal': FileText, // Legacy support
-      // Add mappings for exact API response values
+      'Summarize weekly meal': FileText,
       'analyze-meals': BarChart3,
       'generate-weekly-plan': Calendar,
       'health-risk-report': AlertTriangle,
@@ -99,7 +90,6 @@ const AiHistoryPage = () => {
   }
 
   const getActivityColor = (type) => {
-    // Safety check for undefined/null type
     if (!type) return 'text-gray-600 bg-gray-100'
     
     const colors = {
@@ -108,8 +98,7 @@ const AiHistoryPage = () => {
       'health_risk_report': 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/20',
       'chat': 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20',
       'nutrition_impact_summary': 'text-pink-600 bg-pink-100 dark:text-pink-400 dark:bg-pink-900/20',
-      'Summarize weekly meal': 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20', // Legacy support
-      // Add mappings for exact API response values
+      'Summarize weekly meal': 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20',
       'analyze-meals': 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20',
       'generate-weekly-plan': 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/20',
       'health-risk-report': 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/20',
@@ -121,12 +110,10 @@ const AiHistoryPage = () => {
   }
 
   const formatDate = (dateString) => {
-    // Safety check for undefined/null dateString
     if (!dateString) return 'Unknown date'
     
     try {
       const date = new Date(dateString)
-      // Check if date is valid
       if (isNaN(date.getTime())) return 'Invalid date'
       
       return date.toLocaleDateString('en-US', {
@@ -143,7 +130,6 @@ const AiHistoryPage = () => {
   }
 
   const getActivityTitle = (type) => {
-    // Safety check for undefined/null type
     if (!type) return 'Unknown Activity'
     
     const titles = {
@@ -153,7 +139,6 @@ const AiHistoryPage = () => {
       'chat': 'AI Chat',
       'Summarize weekly meal': 'Weekly Meal Summary',
       'nutrition_impact_summary': 'Nutrition Impact Summary',
-      // Add more mappings for exact API response values
       'analyze-meals': 'Meal Analysis',
       'generate-weekly-plan': 'Weekly Plan Generation',
       'health-risk-report': 'Health Risk Report',
@@ -162,16 +147,67 @@ const AiHistoryPage = () => {
       'nutrition-impact-summary': 'Nutrition Impact Summary'
     }
     
-    // Return mapped title or format the raw type
     return titles[type] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const filteredHistory = history.filter(item => {
-    if (filter === 'all') return true
-    return item.type === filter
-  })
+  // Time-based filtering
+  const filterByTime = (items) => {
+    if (timeFilter === 'all') return items
+    
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const thisWeekStart = new Date(today)
+    thisWeekStart.setDate(today.getDate() - today.getDay()) // Start of week (Sunday)
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    
+    return items.filter(item => {
+      const itemDate = new Date(item.timestamp)
+      
+      switch (timeFilter) {
+        case 'today':
+          return itemDate >= today
+        case 'week':
+          return itemDate >= thisWeekStart
+        case 'month':
+          return itemDate >= thisMonthStart
+        default:
+          return true
+      }
+    })
+  }
+
+  // Type-based filtering
+  const filterByType = (items) => {
+    if (typeFilter === 'all') return items
+    return items.filter(item => item.type === typeFilter)
+  }
+
+  // Apply both filters
+  const filteredHistory = filterByType(filterByTime(history))
 
   const uniqueTypes = [...new Set(history.map(item => item.type))]
+
+  const timeFilterOptions = [
+    { value: 'all', label: 'All Time', count: history.length },
+    { value: 'today', label: 'Today', count: filterByTime(history).filter(item => {
+      const itemDate = new Date(item.timestamp)
+      const today = new Date()
+      return itemDate.toDateString() === today.toDateString()
+    }).length },
+    { value: 'week', label: 'This Week', count: filterByTime(history.filter(item => {
+      const itemDate = new Date(item.timestamp)
+      const now = new Date()
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - now.getDay())
+      return itemDate >= weekStart
+    })).length },
+    { value: 'month', label: 'This Month', count: filterByTime(history.filter(item => {
+      const itemDate = new Date(item.timestamp)
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      return itemDate >= monthStart
+    })).length }
+  ]
 
   const clearHistory = async () => {
     if (!window.confirm('Are you sure you want to clear all AI history? This action cannot be undone.')) {
@@ -179,12 +215,9 @@ const AiHistoryPage = () => {
     }
     
     try {
-      // Note: This would need to be implemented in the Flask service
-      console.log('Clear history functionality would be implemented here')
-      // await flaskAiService.clearHistory(user._id)
-      // setHistory([])
+      // Clear history functionality would be implemented here
     } catch (error) {
-      console.error('Failed to clear history:', error)
+      // Handle clear history error
     }
   }
 
@@ -244,36 +277,77 @@ const AiHistoryPage = () => {
         </div>
       )}
 
-      {/* Filters */}
-      {uniqueTypes.length > 1 && (
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-2">
+      {/* Time Filter Dropdown */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Time Filter */}
+          <div className="relative">
             <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-              }`}
+              onClick={() => setShowTimeDropdown(!showTimeDropdown)}
+              className="flex items-center justify-between w-48 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              All ({history.length})
+              <div className="flex items-center">
+                <Filter className="h-4 w-4 mr-2 text-gray-500" />
+                <span className="text-gray-700 dark:text-gray-300">
+                  {timeFilterOptions.find(opt => opt.value === timeFilter)?.label || 'All Time'}
+                </span>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${showTimeDropdown ? 'rotate-180' : ''}`} />
             </button>
-            {uniqueTypes.map(type => (
+            
+            {showTimeDropdown && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10">
+                {timeFilterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setTimeFilter(option.value)
+                      setShowTimeDropdown(false)
+                    }}
+                    className={`w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                      timeFilter === option.value ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{option.label}</span>
+                      <span className="text-sm text-gray-500">({option.count})</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Type Filter Pills */}
+          {uniqueTypes.length > 1 && (
+            <div className="flex flex-wrap gap-2">
               <button
-                key={type}
-                onClick={() => setFilter(type)}
+                onClick={() => setTypeFilter('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === type
+                  typeFilter === 'all'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
                 }`}
               >
-                {getActivityTitle(type)} ({history.filter(item => item.type === type).length})
+                All Types ({history.length})
               </button>
-            ))}
-          </div>
+              {uniqueTypes.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setTypeFilter(type)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    typeFilter === type
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {getActivityTitle(type)} ({history.filter(item => item.type === type).length})
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* History List */}
       {filteredHistory.length === 0 ? (
@@ -282,10 +356,13 @@ const AiHistoryPage = () => {
             <Clock className="h-16 w-16 mx-auto" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No AI history yet
+            {history.length === 0 ? 'No AI history yet' : 'No activities found'}
           </h3>
           <p className="text-gray-600 dark:text-gray-400">
-            Start using AI features to see your history here
+            {history.length === 0 
+              ? 'Start using AI features to see your history here'
+              : 'Try adjusting your filters to see more activities'
+            }
           </p>
         </div>
       ) : (
@@ -338,13 +415,11 @@ const AiHistoryPage = () => {
                           {typeof item.data.summary === 'string' ? item.data.summary.substring(0, 100) + '...' : 'Summary generated'}
                         </p>
                       )}
-                      {/* Show username if available */}
                       {item.username && (
                         <p className="text-xs text-gray-500 mt-1">
                           User: {item.username}
                         </p>
                       )}
-                      {/* Fallback for unknown types or missing data */}
                       {!item.data && (
                         <p className="text-gray-500 italic">No preview available</p>
                       )}

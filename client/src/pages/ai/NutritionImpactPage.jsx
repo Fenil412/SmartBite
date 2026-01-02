@@ -35,8 +35,6 @@ const NutritionImpactPage = () => {
       setError(null)
       const response = await flaskAiService.getWeeklyPlans(user._id)
       
-      console.log('📅 Weekly Plans API Response:', response)
-      
       if (response.success && response.data) {
         // The data should already be filtered for weekly plans
         const weeklyPlanEntries = response.data.filter(item => 
@@ -47,13 +45,10 @@ const NutritionImpactPage = () => {
         weeklyPlanEntries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         
         setWeeklyPlans(weeklyPlanEntries)
-        console.log('📅 Loaded Weekly Plans:', weeklyPlanEntries)
       } else {
-        console.warn('⚠️ No weekly plans found or unsuccessful response:', response)
         setWeeklyPlans([])
       }
     } catch (error) {
-      console.error('Failed to load weekly plans:', error)
       setError('Failed to load weekly plans. Please try again.')
       setWeeklyPlans([])
     } finally {
@@ -69,8 +64,6 @@ const NutritionImpactPage = () => {
       setError(null)
       const response = await flaskAiService.getHealthRiskReports(user._id)
       
-      console.log('🏥 Health Risk Reports API Response:', response)
-      
       if (response.success && response.data) {
         // The data should already be filtered for health risk reports
         const healthRiskEntries = response.data.filter(item => 
@@ -81,10 +74,8 @@ const NutritionImpactPage = () => {
         healthRiskEntries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         
         setHealthRiskReports(healthRiskEntries)
-        console.log('🏥 Loaded Health Risk Reports:', healthRiskEntries)
         setStep(2)
       } else {
-        console.warn('⚠️ No health risk reports found or unsuccessful response:', response)
         setHealthRiskReports([])
         setStep(2)
       }
@@ -133,7 +124,6 @@ const NutritionImpactPage = () => {
         throw new Error(response.message || 'Failed to generate nutrition impact summary')
       }
     } catch (error) {
-      console.error('Nutrition impact generation failed:', error)
       setError(error.message || 'Failed to generate nutrition impact summary')
     } finally {
       setLoading(false)

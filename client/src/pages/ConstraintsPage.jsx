@@ -56,15 +56,11 @@ const ConstraintsPage = () => {
   const loadConstraints = async () => {
     try {
       setLoading(true)
-      console.log('🔍 DEBUG: Loading constraints')
       
       const response = await constraintService.getMyConstraints()
       
-      console.log('🔍 DEBUG: Load response:', response)
-      
       if (response.success) {
         const constraints = response.data.constraint
-        console.log('🔍 DEBUG: Constraints data:', constraints)
         
         setFormData({
           maxCookTime: constraints.maxCookTime || 30,
@@ -80,7 +76,6 @@ const ConstraintsPage = () => {
         })
       }
     } catch (err) {
-      console.error('🔍 DEBUG: Load error:', err)
       error(err.message || 'Failed to load constraints')
     } finally {
       setLoading(false)
@@ -90,17 +85,13 @@ const ConstraintsPage = () => {
   const handleSave = async () => {
     try {
       setSaving(true)
-      console.log('🔍 DEBUG: Saving constraints:', formData)
       
       const response = await constraintService.upsertConstraints(formData)
-      
-      console.log('🔍 DEBUG: Save response:', response)
       
       if (response.success) {
         success('Constraints saved successfully!')
       }
     } catch (err) {
-      console.error('🔍 DEBUG: Save error:', err)
       error(err.message || 'Failed to save constraints')
     } finally {
       setSaving(false)
@@ -110,11 +101,8 @@ const ConstraintsPage = () => {
   const handleDelete = async () => {
     try {
       setDeleting(true)
-      console.log('🔍 DEBUG: Deleting constraints')
       
       const response = await constraintService.deleteConstraints()
-      
-      console.log('🔍 DEBUG: Delete response:', response)
       
       if (response.success) {
         success('Constraints deleted successfully!')
@@ -134,7 +122,6 @@ const ConstraintsPage = () => {
         setShowDeleteConfirm(false)
       }
     } catch (err) {
-      console.error('🔍 DEBUG: Delete error:', err)
       error(err.message || 'Failed to delete constraints')
     } finally {
       setDeleting(false)

@@ -12,11 +12,10 @@ const CreateMealPlan = () => {
   const { success, error } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Debug: Track component lifecycle
+  // Track component lifecycle
   useEffect(() => {
-    console.log('🔍 DEBUG: CreateMealPlan component mounted')
     return () => {
-      console.log('🔍 DEBUG: CreateMealPlan component unmounted')
+      // Cleanup if needed
     }
   }, [])
   
@@ -102,9 +101,6 @@ const CreateMealPlan = () => {
   }
 
   const handleMealSelect = (day, mealType, meal) => {
-    console.log('🔍 DEBUG: handleMealSelect called', { day, mealType, mealName: meal.name })
-    console.log('🔍 DEBUG: Current formData before update:', formData.days[day][mealType].length, 'meals')
-    
     setFormData(prev => ({
       ...prev,
       days: {
@@ -115,8 +111,6 @@ const CreateMealPlan = () => {
         }
       }
     }))
-    
-    console.log('🔍 DEBUG: Meal added to local state only - NO API CALL')
   }
 
   const handleMealRemove = (day, mealType, index) => {
@@ -186,20 +180,14 @@ const CreateMealPlan = () => {
     e.preventDefault()
     e.stopPropagation()
     
-    console.log('🔍 DEBUG: handleSubmit called - Form submission started')
-    console.log('🔍 DEBUG: isSubmitting state:', isSubmitting)
-    
     if (isSubmitting) {
-      console.log('🔍 DEBUG: Already submitting, preventing duplicate submission')
       return
     }
     
     if (!validateForm()) {
-      console.log('🔍 DEBUG: Form validation failed, not submitting')
       return
     }
 
-    console.log('🔍 DEBUG: Starting API call to create meal plan')
     setIsSubmitting(true)
     
     try {
@@ -223,21 +211,15 @@ const CreateMealPlan = () => {
         nutritionSummary
       }
 
-      console.log('🔍 DEBUG: Sending API request with data:', planData)
-      console.log('🔍 DEBUG: Plan title being sent:', formData.title)
       const response = await mealPlanService.createMealPlan(planData)
-      console.log('🔍 DEBUG: API response received:', response)
       
       if (response.success) {
         success('Meal plan created successfully!')
-        console.log('🔍 DEBUG: Navigating to meal plan details')
         navigate(`/dashboard/meal-planner/${response.data.plan._id}`)
       }
     } catch (err) {
-      console.error('🔍 DEBUG: API call failed:', err)
       error(err.message || 'Failed to create meal plan')
     } finally {
-      console.log('🔍 DEBUG: Setting isSubmitting to false')
       setIsSubmitting(false)
     }
   }
@@ -292,7 +274,6 @@ const CreateMealPlan = () => {
         // Prevent form submission on Enter key unless it's the submit button
         if (e.key === 'Enter' && e.target.type !== 'submit') {
           e.preventDefault()
-          console.log('🔍 DEBUG: Enter key pressed - prevented form submission')
         }
       }} className="space-y-8">
         {/* Basic Information */}

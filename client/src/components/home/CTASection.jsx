@@ -109,7 +109,7 @@ const CTASection = () => {
             >
               {isAuthenticated && isDashboardView ? (
                 <Link
-                  to="/dashboard/meal-planner"
+                  to="/dashboard/ai/weekly-plan"
                   className="group bg-white text-primary-700 px-10 py-5 rounded-2xl font-bold text-xl hover:shadow-2xl hover:shadow-black/25 transition-all duration-300 transform hover:scale-105 flex items-center space-x-3 mx-auto"
                 >
                   <span>Start Your Meal Plan</span>

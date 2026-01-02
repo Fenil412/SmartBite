@@ -20,6 +20,9 @@ import {
   Bell,
   Sparkles,
   ShoppingCart,
+  Apple,
+  ChevronDown,
+  ChevronRight,
   // AI Icons
   Bot,
   Heart,
@@ -40,16 +43,25 @@ const navigation = [
   { name: 'AI Dashboard', href: '/dashboard/ai', icon: Brain },
   { name: 'Meal Planner', href: '/dashboard/meal-planner', icon: Calendar },
   { name: 'Browse Meals', href: '/dashboard/meals', icon: UtensilsCrossed, end: true },
-  { name: 'My Meals', href: '/dashboard/meals/my-meals', icon: ChefHat },
   { name: 'Smart Grocery', href: '/dashboard/grocery', icon: ShoppingCart },
-  { name: 'AI Recommendations', href: '/dashboard/recommendations', icon: Sparkles },
-  { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-  { name: 'Goals', href: '/dashboard/goals', icon: Target },
-  { name: 'History', href: '/dashboard/history', icon: History },
   { name: 'Profile', href: '/dashboard/profile', icon: User },
-  { name: 'Constraints', href: '/dashboard/constraints', icon: Sliders },
-  { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+]
+
+// Secondary Navigation - Additional Features
+const secondaryNavigation = [
+  { 
+    name: 'More', 
+    icon: History, 
+    subItems: [
+      { name: 'My Meals', href: '/dashboard/meals/my-meals', icon: ChefHat },
+      { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
+      { name: 'History', href: '/dashboard/history', icon: History },
+      { name: 'About', href: '/dashboard/about', icon: Apple },
+      { name: 'Constraints', href: '/dashboard/constraints', icon: Sliders },
+      { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
+    ]
+  }
 ]
 
 // AI Features Navigation
@@ -97,8 +109,9 @@ const Sidebar = ({ onClose }) => {
   const { success } = useToast()
   const { unreadCount } = useNotifications()
   const navigate = useNavigate()
-  const [isCollapsed] = useState(true) // Start collapsed, remove setIsCollapsed since it's not used
+  const [isCollapsed] = useState(true) // Start collapsed
   const [isHovering, setIsHovering] = useState(false)
+  const [expandedSection, setExpandedSection] = useState(null)
 
   const handleLogout = async () => {
     try {
@@ -106,7 +119,7 @@ const Sidebar = ({ onClose }) => {
       success('Logged out successfully')
       navigate('/')
     } catch (error) {
-      console.error('Logout error:', error)
+      // Logout error - continue anyway
     }
   }
 
@@ -116,14 +129,12 @@ const Sidebar = ({ onClose }) => {
   const handleMouseEnter = () => {
     if (isCollapsed) {
       setIsHovering(true)
-      console.log('🖱️ Sidebar hover: expanding')
     }
   }
 
   const handleMouseLeave = () => {
     if (isCollapsed) {
       setIsHovering(false)
-      console.log('🖱️ Sidebar hover: collapsing')
     }
   }
 
@@ -150,7 +161,6 @@ const Sidebar = ({ onClose }) => {
                 to="/dashboard/home" 
                 className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
                 onClick={() => {
-                  console.log('🏠 SmartBite logo clicked - navigating to Dashboard Home')
                   onClose && onClose()
                 }}
               >
@@ -286,12 +296,6 @@ const Sidebar = ({ onClose }) => {
                         : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
                     } ${!shouldShowExpanded ? '' : 'mr-3'}`}
                   />
-                  {/* Notification Badge */}
-                  {item.name === 'Notifications' && unreadCount > 0 && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </div>
-                  )}
                 </div>
                 <AnimatePresence>
                   {shouldShowExpanded && (
@@ -321,6 +325,101 @@ const Sidebar = ({ onClose }) => {
             )}
           </NavLink>
         ))}
+
+        {/* Secondary Navigation - More Section */}
+        {shouldShowExpanded && secondaryNavigation.map((section) => (
+          <div key={section.name} className="pt-2">
+            <button
+              onClick={() => setExpandedSection(expandedSection === section.name ? null : section.name)}
+              className="w-full flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
+            >
+              <section.icon className="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+              <span className="truncate flex-1 text-left">{section.name}</span>
+              {expandedSection === section.name ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              )}
+            </button>
+            
+            <AnimatePresence>
+              {expandedSection === section.name && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="ml-6 mt-1 space-y-1 border-l border-gray-200 dark:border-gray-700 pl-3"
+                >
+                  {section.subItems.map((subItem, subIndex) => (
+                    <NavLink
+                      key={subItem.name}
+                      to={subItem.href}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        `flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                          isActive
+                            ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <div className="relative">
+                            <subItem.icon
+                              className={`h-4 w-4 mr-3 transition-colors ${
+                                isActive
+                                  ? 'text-primary-600 dark:text-primary-400'
+                                  : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                              }`}
+                            />
+                            {/* Notification Badge for Notifications */}
+                            {subItem.name === 'Notifications' && unreadCount > 0 && (
+                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                              </div>
+                            )}
+                          </div>
+                          <motion.span
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2, delay: subIndex * 0.02 }}
+                            className="truncate"
+                          >
+                            {subItem.name}
+                          </motion.span>
+                          {isActive && (
+                            <motion.div
+                              layoutId="activeSubTab"
+                              className="ml-auto w-2 h-2 bg-primary-500 rounded-full"
+                              initial={false}
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            />
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
+
+        {/* Collapsed More Section - Show as single icon */}
+        {!shouldShowExpanded && (
+          <div className="pt-2">
+            <button
+              onClick={() => setExpandedSection('More')}
+              className="w-full flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
+              title="More Options"
+            >
+              <History className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+            </button>
+          </div>
+        )}
 
         {/* AI Features Section */}
         {shouldShowExpanded && (

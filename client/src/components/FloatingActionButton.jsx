@@ -12,25 +12,25 @@ const FloatingActionButton = () => {
       icon: MessageCircle,
       label: 'AI Chat',
       color: 'from-blue-500 to-blue-600',
-      action: () => console.log('AI Chat clicked')
+      action: () => {} // Placeholder
     },
     {
       icon: Sparkles,
       label: 'Quick Plan',
       color: 'from-primary-500 to-primary-600',
-      action: () => console.log('Quick Plan clicked')
+      action: () => {} // Placeholder
     },
     {
       icon: Heart,
       label: 'Favorites',
       color: 'from-red-500 to-red-600',
-      action: () => console.log('Favorites clicked')
+      action: () => {} // Placeholder
     },
     {
       icon: Zap,
       label: 'Quick Tips',
       color: 'from-yellow-500 to-yellow-600',
-      action: () => console.log('Quick Tips clicked')
+      action: () => {} // Placeholder
     }
   ]
 

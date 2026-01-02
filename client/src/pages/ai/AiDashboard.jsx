@@ -32,8 +32,26 @@ const AiDashboard = () => {
     try {
       const response = await flaskAiService.getHistory(user._id)
       if (response.success) {
+        // Transform API response to match frontend expectations (same as AiHistoryPage)
+        const transformedHistory = (response.data || []).map(item => {
+          const transformed = {
+            ...item,
+            type: item.action || item.type, // Map 'action' to 'type', fallback to existing type
+            timestamp: item.createdAt || item.timestamp, // Map 'createdAt' to 'timestamp', fallback to existing
+            username: item.username || user.username || 'Unknown User'
+          }
+          return transformed
+        })
+        
+        // Sort by timestamp in descending order (newest first)
+        transformedHistory.sort((a, b) => {
+          const dateA = new Date(a.timestamp)
+          const dateB = new Date(b.timestamp)
+          return dateB - dateA // Newest first
+        })
+        
         // Get last 3 activities
-        setRecentActivity((response.data || []).slice(0, 3))
+        setRecentActivity(transformedHistory.slice(0, 3))
       }
     } catch (error) {
       console.error('Failed to load recent AI activity:', error)
@@ -115,26 +133,105 @@ const AiDashboard = () => {
     }
   ]
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   const getActivityTitle = (type) => {
+    if (!type) return 'Unknown Activity'
+    
     const titles = {
       'meal_analysis': 'Meal Analysis',
-      'weekly_plan': 'Weekly Plan',
+      'weekly_plan': 'Weekly Plan Generation', 
       'health_risk_report': 'Health Risk Report',
       'chat': 'AI Chat',
-      'Summarize weekly meal': 'Weekly Summary',
-      'nutrition_impact_summary': 'Nutrition Impact'
+      'Summarize weekly meal': 'Weekly Meal Summary',
+      'nutrition_impact_summary': 'Nutrition Impact Summary',
+      'analyze-meals': 'Meal Analysis',
+      'generate-weekly-plan': 'Weekly Plan Generation',
+      'health-risk-report': 'Health Risk Report',
+      'chat/generateResponse': 'AI Chat',
+      'summarize-weekly-meal': 'Weekly Meal Summary',
+      'nutrition-impact-summary': 'Nutrition Impact Summary'
     }
-    return titles[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    
+    return titles[type] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date'
+    
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return 'Invalid date'
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch (error) {
+      console.error('Error formatting date:', error)
+      return 'Invalid date'
+    }
+  }
+
+  const getActivityIcon = (type) => {
+    if (!type) return Zap
+    
+    const icons = {
+      'meal_analysis': BarChart3,
+      'weekly_plan': Calendar,
+      'health_risk_report': AlertTriangle,
+      'chat': Bot,
+      'nutrition_impact_summary': Heart,
+      'Summarize weekly meal': FileText,
+      'analyze-meals': BarChart3,
+      'generate-weekly-plan': Calendar,
+      'health-risk-report': AlertTriangle,
+      'chat/generateResponse': Bot,
+      'summarize-weekly-meal': FileText,
+      'nutrition-impact-summary': Heart
+    }
+    return icons[type] || Zap
+  }
+
+  const getActivityColor = (type) => {
+    if (!type) return 'bg-gray-100 dark:bg-gray-700'
+    
+    const colors = {
+      'meal_analysis': 'bg-blue-100 dark:bg-blue-900/20',
+      'weekly_plan': 'bg-green-100 dark:bg-green-900/20',
+      'health_risk_report': 'bg-red-100 dark:bg-red-900/20',
+      'chat': 'bg-purple-100 dark:bg-purple-900/20',
+      'nutrition_impact_summary': 'bg-pink-100 dark:bg-pink-900/20',
+      'Summarize weekly meal': 'bg-yellow-100 dark:bg-yellow-900/20',
+      'analyze-meals': 'bg-blue-100 dark:bg-blue-900/20',
+      'generate-weekly-plan': 'bg-green-100 dark:bg-green-900/20',
+      'health-risk-report': 'bg-red-100 dark:bg-red-900/20',
+      'chat/generateResponse': 'bg-purple-100 dark:bg-purple-900/20',
+      'summarize-weekly-meal': 'bg-yellow-100 dark:bg-yellow-900/20',
+      'nutrition-impact-summary': 'bg-pink-100 dark:bg-pink-900/20'
+    }
+    return colors[type] || 'bg-gray-100 dark:bg-gray-700'
+  }
+
+  const getActivityIconColor = (type) => {
+    if (!type) return 'text-gray-600 dark:text-gray-400'
+    
+    const colors = {
+      'meal_analysis': 'text-blue-600 dark:text-blue-400',
+      'weekly_plan': 'text-green-600 dark:text-green-400',
+      'health_risk_report': 'text-red-600 dark:text-red-400',
+      'chat': 'text-purple-600 dark:text-purple-400',
+      'nutrition_impact_summary': 'text-pink-600 dark:text-pink-400',
+      'Summarize weekly meal': 'text-yellow-600 dark:text-yellow-400',
+      'analyze-meals': 'text-blue-600 dark:text-blue-400',
+      'generate-weekly-plan': 'text-green-600 dark:text-green-400',
+      'health-risk-report': 'text-red-600 dark:text-red-400',
+      'chat/generateResponse': 'text-purple-600 dark:text-purple-400',
+      'summarize-weekly-meal': 'text-yellow-600 dark:text-yellow-400',
+      'nutrition-impact-summary': 'text-pink-600 dark:text-pink-400'
+    }
+    return colors[type] || 'text-gray-600 dark:text-gray-400'
   }
 
   return (
@@ -224,34 +321,37 @@ const AiDashboard = () => {
           </div>
         ) : recentActivity.length > 0 ? (
           <div className="space-y-4">
-            {recentActivity.map((activity, index) => (
-              <div
-                key={index}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                      <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            {recentActivity.map((activity, index) => {
+              const IconComponent = getActivityIcon(activity.type)
+              return (
+                <div
+                  key={index}
+                  className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${getActivityColor(activity.type)}`}>
+                        <IconComponent className={`h-4 w-4 ${getActivityIconColor(activity.type)}`} />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">
+                          {getActivityTitle(activity.type)}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {formatDate(activity.timestamp)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900 dark:text-white">
-                        {getActivityTitle(activity.type)}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {formatDate(activity.timestamp)}
-                      </p>
-                    </div>
+                    <Link
+                      to="/dashboard/ai/history"
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      View Details
+                    </Link>
                   </div>
-                  <Link
-                    to="/dashboard/ai/history"
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    View Details
-                  </Link>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">

@@ -38,7 +38,7 @@ const HomePage = () => {
       transition={{ duration: 0.5 }}
       className="min-h-screen"
     >
-      {/* Main Content - No Navigation Bar */}
+      {/* Main Content */}
       <div>
         <HeroSection />
         <HowItWorksSection />

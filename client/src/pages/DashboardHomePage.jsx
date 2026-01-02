@@ -9,6 +9,7 @@ import AIEngineSection from '../components/home/AIEngineSection'
 import SampleMealsSection from '../components/home/SampleMealsSection'
 import UserGoalsSection from '../components/home/UserGoalsSection'
 import CTASection from '../components/home/CTASection'
+import ServiceButtons from '../components/home/ServiceButtons'
 import Footer from '../components/Footer'
 
 const DashboardHomePage = () => {
@@ -16,12 +17,10 @@ const DashboardHomePage = () => {
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(true)
 
   useEffect(() => {
-    console.log('🏠 User navigated to Dashboard Home page')
-    
-    // Auto-dismiss banner after 10 seconds
+    // Auto-dismiss banner after 5 seconds
     const timer = setTimeout(() => {
       setShowWelcomeBanner(false)
-    }, 10000)
+    }, 5000)
 
     return () => clearTimeout(timer)
   }, [])
@@ -75,6 +74,9 @@ const DashboardHomePage = () => {
         <CTASection />
         <Footer />
       </div>
+
+      {/* Service Buttons - Fixed Position */}
+      <ServiceButtons />
     </motion.div>
   )
 }

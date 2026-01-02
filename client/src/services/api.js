@@ -23,10 +23,9 @@ const initializeTokens = () => {
     if (storedAccessToken && storedRefreshToken) {
       accessToken = storedAccessToken
       refreshToken = storedRefreshToken
-      console.log('🔑 Tokens restored from localStorage')
     }
   } catch (error) {
-    console.error('Failed to restore tokens:', error)
+    // Continue without tokens if localStorage fails
   }
 }
 
@@ -42,10 +41,9 @@ export const setTokens = (access, refresh) => {
     if (access && refresh) {
       localStorage.setItem('smartbite_access_token', access)
       localStorage.setItem('smartbite_refresh_token', refresh)
-      console.log('🔑 Tokens saved to localStorage')
     }
   } catch (error) {
-    console.error('Failed to save tokens:', error)
+    // Continue if localStorage fails
   }
 }
 
@@ -65,9 +63,8 @@ export const clearTokens = () => {
   try {
     localStorage.removeItem('smartbite_access_token')
     localStorage.removeItem('smartbite_refresh_token')
-    console.log('🔑 Tokens cleared from localStorage')
   } catch (error) {
-    console.error('Failed to clear tokens:', error)
+    // Continue if localStorage fails
   }
 }
 
@@ -76,14 +73,10 @@ api.interceptors.request.use(
   (config) => {
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`
-      console.log('🔑 Request with token to:', config.url)
-    } else {
-      console.log('📤 Request without token to:', config.url)
     }
     return config
   },
   (error) => {
-    console.error('❌ Request interceptor error:', error)
     return Promise.reject(error)
   }
 )
@@ -91,16 +84,13 @@ api.interceptors.request.use(
 // Response interceptor to handle errors and token refresh
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', response.status, response.config.url)
     return response.data
   },
   async (error) => {
     const originalRequest = error.config
-    console.error('❌ API Error:', error.response?.status, error.config?.url, error.response?.data?.message)
 
     if (error.response?.status === 401 && !originalRequest._retry && refreshToken) {
       originalRequest._retry = true
-      console.log('🔄 Attempting token refresh...')
 
       try {
         // Try to refresh token
@@ -118,13 +108,11 @@ api.interceptors.response.use(
           
           setTokens(newAccessToken, newRefreshToken)
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
-          console.log('✅ Token refresh successful, retrying original request')
           
           return api(originalRequest)
         }
       } catch (refreshError) {
         // Refresh failed, clear tokens and redirect to login
-        console.error('❌ Token refresh failed:', refreshError.response?.data?.message)
         clearTokens()
         window.location.href = '/login'
         return Promise.reject(refreshError)

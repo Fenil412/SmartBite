@@ -3,49 +3,40 @@
 
 import os
 from dotenv import load_dotenv
+import hmac
+import hashlib
 
 # Load environment variables
 load_dotenv()
 
-print("🔍 Flask Environment Test")
-print(f"INTERNAL_HMAC_SECRET: '{os.getenv('INTERNAL_HMAC_SECRET')}'")
-print(f"SECRET exists: {bool(os.getenv('INTERNAL_HMAC_SECRET'))}")
-print(f"SECRET length: {len(os.getenv('INTERNAL_HMAC_SECRET', ''))}")
-
-# Test HMAC generation
-import hmac
-import hashlib
-
-secret = os.getenv('INTERNAL_HMAC_SECRET')
-if secret:
-    timestamp = "1766938768"
-    body = '{"userId":"test123","data":{"user":{"id":"test123","name":"test"}}}'
+def test_environment():
+    """Test Flask environment configuration"""
+    secret = os.getenv('INTERNAL_HMAC_SECRET')
     
-    expected = hmac.new(
-        secret.encode(),
-        (timestamp + body).encode(),
-        hashlib.sha256
-    ).hexdigest()
+    if not secret:
+        return False, "INTERNAL_HMAC_SECRET not found in environment"
     
-    print(f"\nHMAC Test:")
-    print(f"Timestamp: {timestamp}")
-    print(f"Body: {body}")
-    print(f"HMAC input: '{timestamp + body}'")
-    print(f"Expected signature: {expected}")
-else:
-    print("❌ INTERNAL_HMAC_SECRET not found!")
-    print("\n🔧 Checking .env file...")
+    if len(secret) < 32:
+        return False, "INTERNAL_HMAC_SECRET too short (should be at least 32 characters)"
+    
+    # Test HMAC generation
     try:
-        with open('.env', 'r') as f:
-            content = f.read()
-            if 'INTERNAL_HMAC_SECRET' in content:
-                print("✅ INTERNAL_HMAC_SECRET found in .env file")
-                # Extract the value
-                for line in content.split('\n'):
-                    if line.startswith('INTERNAL_HMAC_SECRET='):
-                        value = line.split('=', 1)[1]
-                        print(f"Value in .env: '{value}'")
-            else:
-                print("❌ INTERNAL_HMAC_SECRET not found in .env file")
-    except FileNotFoundError:
-        print("❌ .env file not found!")
+        timestamp = "1766938768"
+        body = '{"userId":"test123","data":{"user":{"id":"test123","name":"test"}}}'
+        
+        expected = hmac.new(
+            secret.encode(),
+            (timestamp + body).encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        return True, f"Environment configured correctly. HMAC test passed."
+    except Exception as e:
+        return False, f"HMAC generation failed: {str(e)}"
+
+if __name__ == "__main__":
+    success, message = test_environment()
+    if success:
+        exit(0)
+    else:
+        exit(1)

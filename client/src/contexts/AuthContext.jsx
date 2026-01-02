@@ -8,7 +8,6 @@ const authReducer = (state, action) => {
     case 'SET_LOADING':
       return { ...state, loading: action.payload }
     case 'LOGIN_SUCCESS':
-      console.log('✅ User authenticated:', action.payload.user.email)
       return {
         ...state,
         user: action.payload.user,
@@ -17,7 +16,6 @@ const authReducer = (state, action) => {
         error: null
       }
     case 'LOGOUT':
-      console.log('🚪 User logged out')
       return {
         ...state,
         user: null,
@@ -26,7 +24,6 @@ const authReducer = (state, action) => {
         error: null
       }
     case 'SET_ERROR':
-      console.error('❌ Auth error:', action.payload)
       return {
         ...state,
         error: action.payload,
@@ -38,7 +35,6 @@ const authReducer = (state, action) => {
         error: null
       }
     case 'UPDATE_USER':
-      console.log('👤 User data updated:', action.payload)
       return {
         ...state,
         user: { ...state.user, ...action.payload }
@@ -71,23 +67,19 @@ export const AuthProvider = ({ children }) => {
   const initializeAuth = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
-      console.log('🔄 Initializing authentication...')
       
       // Try to get user data (this will work if there's a valid session)
       const response = await userService.getMe()
       
       if (response.success && response.data) {
-        console.log('✅ User session restored:', response.data.email)
         dispatch({
           type: 'LOGIN_SUCCESS',
           payload: { user: response.data }
         })
       } else {
-        console.log('❌ No valid session found')
         dispatch({ type: 'LOGOUT' })
       }
     } catch (error) {
-      console.log('❌ Session initialization failed:', error.message)
       dispatch({ type: 'LOGOUT' })
     }
   }
@@ -96,7 +88,6 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
       dispatch({ type: 'CLEAR_ERROR' })
-      console.log('🔄 Attempting login for:', credentials.email)
 
       const response = await userService.login(credentials)
       
@@ -106,7 +97,6 @@ export const AuthProvider = ({ children }) => {
         // Set both tokens in memory and localStorage
         if (tokens) {
           setTokens(tokens.accessToken, tokens.refreshToken)
-          console.log('✅ Login successful for:', user.email)
         }
         
         dispatch({
@@ -119,7 +109,6 @@ export const AuthProvider = ({ children }) => {
         throw new Error(response.message || 'Login failed')
       }
     } catch (error) {
-      console.error('❌ Login failed:', error.message)
       dispatch({
         type: 'SET_ERROR',
         payload: error.message || 'Login failed'
@@ -153,15 +142,13 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      console.log('🔄 Logging out user...')
       await userService.logout()
     } catch (error) {
-      console.error('Logout error:', error)
+      // Continue with logout even if API call fails
     } finally {
       // Clear tokens and state regardless of API call result
       clearTokens()
       dispatch({ type: 'LOGOUT' })
-      console.log('✅ User logged out successfully')
     }
   }
 
@@ -175,7 +162,6 @@ export const AuthProvider = ({ children }) => {
       }
       return false
     } catch (error) {
-      console.error('Token refresh failed:', error)
       return false
     }
   }
@@ -192,7 +178,6 @@ export const AuthProvider = ({ children }) => {
         return response.data
       }
     } catch (error) {
-      console.error('Fetch user failed:', error)
       throw error
     }
   }

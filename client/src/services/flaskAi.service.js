@@ -12,11 +12,9 @@ const flaskAi = axios.create({
 // Request interceptor for logging
 flaskAi.interceptors.request.use(
   (config) => {
-    console.log('🤖 Flask AI Request:', config.method?.toUpperCase(), config.url)
     return config
   },
   (error) => {
-    console.error('❌ Flask AI Request Error:', error)
     return Promise.reject(error)
   }
 )
@@ -24,12 +22,9 @@ flaskAi.interceptors.request.use(
 // Response interceptor for error handling
 flaskAi.interceptors.response.use(
   (response) => {
-    console.log('✅ Flask AI Response:', response.status, response.config.url)
     return response.data
   },
   (error) => {
-    console.error('❌ Flask AI Error:', error.response?.status, error.config?.url, error.response?.data?.message)
-    
     const errorMessage = error.response?.data?.message || error.message || 'AI service error'
     
     return Promise.reject({

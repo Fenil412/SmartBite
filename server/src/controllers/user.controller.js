@@ -170,8 +170,7 @@ const loginUser = asyncHandler(async (req, res) => {
   try {
       await syncUserContextToFlask(userContext);
   } catch (err) {
-      console.error("Failed to sync user context to Flask:", err.message);
-      // We don't block login if sync fails, but we log it.
+      // We don't block login if sync fails
   }
 
   const safeUser = getSafeUser(user);
@@ -342,7 +341,7 @@ const sendPasswordExpiryReminders = asyncHandler(async (req, res) => {
       await user.save({ validateBeforeSave: false });
       count++;
     } catch (err) {
-      console.error(`Error sending reminder to ${user.email}:`, err);
+      // Continue with next user if notification fails
     }
   }
 
@@ -361,7 +360,7 @@ const getMe = asyncHandler(async (req, res) => {
   try {
       await syncUserContextToFlask(userContext);
   } catch (err) {
-      console.error("Failed to sync user context to Flask:", err.message);
+      // Continue if sync fails
   }
 
   return ApiResponse.success(res, getSafeUser(user), 200);
@@ -413,7 +412,7 @@ const deleteMyProfile = asyncHandler(async (req, res) => {
       `${process.env.FLASK_AI_BASE_URL}/internal/delete-user/${userId}`
     );
   } catch (err) {
-      console.error("Failed to delete user from Flask:", err.message);
+      // Continue if Flask deletion fails
   }
 
   await addActivity(user, "DELETE_PROFILE", {});
@@ -452,9 +451,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
     // 🔥 PUSH ONCE TO FLASK
     try {
       await syncUserContextToFlask(userContext);
-      console.log(`✅ User context synced to Flask for user: ${userId}`);
     } catch (syncError) {
-      console.error(`❌ Failed to sync user context to Flask for user ${userId}:`, syncError.message);
       // Continue execution - Flask sync failure should not break the API
     }
 
@@ -464,7 +461,6 @@ export const getUserProfile = asyncHandler(async (req, res) => {
       syncedToFlask: true
     });
   } catch (error) {
-    console.error(`❌ Failed to build user context for user ${userId}:`, error.message);
     return res.status(500).json({ 
       success: false, 
       message: "Failed to build user context",

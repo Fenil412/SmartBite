@@ -116,8 +116,6 @@ const WeeklyPlanPage = () => {
         preferences
       }
 
-      console.log('🤖 Generating weekly plan with data:', requestData)
-
       const response = await flaskAiService.generateWeeklyPlan(requestData.userId, requestData.profile, requestData.targets)
       
       if (response.success) {
@@ -127,7 +125,6 @@ const WeeklyPlanPage = () => {
         throw new Error(response.message || 'Failed to generate weekly plan')
       }
     } catch (error) {
-      console.error('Weekly plan generation failed:', error)
       setError(error.message || 'Failed to generate weekly plan')
     } finally {
       setLoading(false)
@@ -148,7 +145,7 @@ const WeeklyPlanPage = () => {
         setCopyStates(prev => ({ ...prev, [day]: false }))
       }, 2000)
     }).catch(err => {
-      console.error('Failed to copy:', err)
+      // Copy failed silently
     })
   }
 

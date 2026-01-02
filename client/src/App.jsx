@@ -5,7 +5,6 @@ import ToastProvider from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
-import AuthDebug from './components/AuthDebug'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
@@ -43,8 +42,8 @@ import WeeklySummaryPage from './pages/ai/WeeklySummaryPage'
 import NutritionImpactPage from './pages/ai/NutritionImpactPage'
 import AiHistoryPage from './pages/ai/AiHistoryPage'
 import AiDashboard from './pages/ai/AiDashboard'
+import AboutPage from './pages/AboutPage'
 import ParticleSystem from './components/ParticleSystem'
-import FloatingActionButton from './components/FloatingActionButton'
 import useThemeStore from './store/themeStore'
 import useCustomCursor from './hooks/useCustomCursor'
 
@@ -55,9 +54,6 @@ function App() {
 
   useEffect(() => {
     initializeTheme()
-    console.log('🚀 SmartBite App Started')
-    console.log('🌐 Environment:', import.meta.env.MODE)
-    console.log('🔗 API URL:', import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1')
   }, [initializeTheme])
 
   return (
@@ -104,6 +100,7 @@ function App() {
               <Route path="ai/history" element={<AiHistoryPage />} />
               <Route path="goals" element={<div className="p-8">Goals Coming Soon</div>} />
               <Route path="history" element={<ActivityPage />} />
+              <Route path="about" element={<AboutPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="constraints" element={<ConstraintsPage />} />
               <Route path="feedback" element={<FeedbackPage />} />
@@ -120,8 +117,6 @@ function App() {
             {/* Catch all route - redirect to home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          <FloatingActionButton />
-          <AuthDebug />
         </div>
       </NotificationProvider>
     </AuthProvider>

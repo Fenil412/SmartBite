@@ -16,9 +16,6 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
         cookingDays
     } = req.body;
 
-    console.log('🔍 DEBUG: Upserting constraints for user:', userId);
-    console.log('🔍 DEBUG: Request body:', req.body);
-
     const constraint = await Constraint.findOneAndUpdate(
         { user: userId },
         {
@@ -34,9 +31,7 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
         }
     );
 
-    console.log('🔍 DEBUG: Upserted constraint:', constraint);
-
-    // 🔥 Trigger AI sync when constraints change
+    // Trigger AI sync when constraints change
     triggerUserContextSync(userId);
 
     return ApiResponse.success(
@@ -51,17 +46,13 @@ export const upsertConstraints = asyncHandler(async (req, res) => {
 =========================== */
 export const getMyConstraints = asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    console.log('🔍 DEBUG: Getting constraints for user:', userId);
     
     let constraint = await Constraint.findOne({
         user: userId
     });
 
-    console.log('🔍 DEBUG: Found constraint:', constraint);
-
     // If no constraints found, return default values instead of 404
     if (!constraint) {
-        console.log('🔍 DEBUG: No constraints found, returning defaults');
         constraint = {
             user: userId,
             maxCookTime: 30,
@@ -77,8 +68,6 @@ export const getMyConstraints = asyncHandler(async (req, res) => {
         };
     }
 
-    console.log('🔍 DEBUG: Returning constraint:', constraint);
-
     return ApiResponse.success(
         res,
         { constraint },
@@ -91,13 +80,10 @@ export const getMyConstraints = asyncHandler(async (req, res) => {
 =========================== */
 export const deleteConstraints = asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    console.log('🔍 DEBUG: Deleting constraints for user:', userId);
     
     const constraint = await Constraint.findOneAndDelete({
         user: userId
     });
-
-    console.log('🔍 DEBUG: Deleted constraint:', constraint);
 
     // Sync user context to Flask AI service
     try {
@@ -106,9 +92,7 @@ export const deleteConstraints = asyncHandler(async (req, res) => {
             constraints: null
         };
         await syncUserContextToFlask(updatedUserContext);
-        console.log('🔍 DEBUG: Successfully synced deletion to Flask');
     } catch (syncError) {
-        console.error('🔍 DEBUG: Failed to sync user context:', syncError);
         // Don't fail the request if sync fails
     }
 

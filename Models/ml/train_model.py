@@ -34,4 +34,3 @@ model = MultiOutputRegressor(
 model.fit(X, y)
 
 joblib.dump(model, "models/meal_distribution_model.pkl")
-print("✅ Model trained & saved")

@@ -80,16 +80,12 @@ const HealthRiskPage = () => {
       
       const response = await flaskAiService.getHealthRiskReport(user._id, [mealData])
       
-      console.log('🔍 Health Risk Response:', response) // Debug log
-      
       if (response.success) {
         setRiskReport(response.data)
-        console.log('✅ Risk report data set:', response.data) // Debug log
       } else {
         throw new Error(response.message || 'Risk analysis failed')
       }
     } catch (error) {
-      console.error('Risk analysis failed:', error)
       setError(error.message || 'Failed to generate risk report')
     } finally {
       setLoading(false)

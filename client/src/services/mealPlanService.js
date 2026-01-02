@@ -3,12 +3,7 @@ import api from './api.js'
 export const mealPlanService = {
   // Create meal plan
   createMealPlan: async (data) => {
-    console.log('🔍 DEBUG: mealPlanService.createMealPlan called with data:', data)
-    console.log('🔍 DEBUG: Making POST request to /meal-plans')
-    
     const response = await api.post('/meal-plans', data)
-    
-    console.log('🔍 DEBUG: createMealPlan API response:', response)
     return response
   },
 
@@ -24,12 +19,7 @@ export const mealPlanService = {
 
   // Update meal plan
   updateMealPlan: async (planId, data) => {
-    console.log('🔍 DEBUG: mealPlanService.updateMealPlan called with planId:', planId, 'data:', data)
-    console.log('🔍 DEBUG: Making PUT request to /meal-plans/' + planId)
-    
     const response = await api.put(`/meal-plans/${planId}`, data)
-    
-    console.log('🔍 DEBUG: updateMealPlan API response:', response)
     return response
   },
 

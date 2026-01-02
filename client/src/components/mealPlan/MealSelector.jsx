@@ -46,15 +46,10 @@ const MealSelector = ({ selectedMeals, onMealSelect, onMealRemove, mealType }) =
   }
 
   const handleMealSelect = (meal) => {
-    console.log('🔍 DEBUG: MealSelector - handleMealSelect called for meal:', meal.name)
-    console.log('🔍 DEBUG: MealSelector - Calling onMealSelect callback (updates parent state only)')
-    
     // Only update local state - no API calls
     onMealSelect(meal)
     setShowModal(false)
     setSearchTerm('')
-    
-    console.log('🔍 DEBUG: MealSelector - Modal closed, meal selection complete')
   }
 
   const getMealTypeColor = (type) => {
@@ -159,7 +154,6 @@ const MealSelector = ({ selectedMeals, onMealSelect, onMealRemove, mealType }) =
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => {
           if (e.target === e.currentTarget) {
-            console.log('🔍 DEBUG: Modal backdrop clicked - closing modal')
             setShowModal(false)
             setSearchTerm('')
           }
@@ -174,7 +168,6 @@ const MealSelector = ({ selectedMeals, onMealSelect, onMealRemove, mealType }) =
                 <button
                   type="button"
                   onClick={() => {
-                    console.log('🔍 DEBUG: Modal close button clicked')
                     setShowModal(false)
                     setSearchTerm('')
                   }}
@@ -196,7 +189,6 @@ const MealSelector = ({ selectedMeals, onMealSelect, onMealRemove, mealType }) =
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      console.log('🔍 DEBUG: Enter pressed in search - prevented default')
                     }
                   }}
                 />
@@ -217,7 +209,6 @@ const MealSelector = ({ selectedMeals, onMealSelect, onMealRemove, mealType }) =
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        console.log('🔍 DEBUG: Meal card clicked:', meal.name)
                         handleMealSelect(meal)
                       }}
                       className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"

@@ -36,7 +36,6 @@ export const dispatchNotification = async ({
         }
     } catch (err) {
         log.channels.email.error = err.message;
-        console.error("Email send failed:", err.message);
     }
 
     /* ---------- SMS ---------- */
@@ -51,11 +50,10 @@ export const dispatchNotification = async ({
             log.channels.sms.status = "success";
             smsSuccess = true;
         } else {
-            console.warn("SMS skipped: missing phone or Twilio credentials");
+            // SMS skipped: missing phone or Twilio credentials
         }
     } catch (err) {
         log.channels.sms.error = err.message;
-        console.error("SMS send failed:", err.message);
     }
 
     /* ---------- FINAL STATUS ---------- */

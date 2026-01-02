@@ -24,8 +24,6 @@ const WeeklySummaryPage = () => {
       setError(null)
       const response = await flaskAiService.getWeeklyPlans(user._id)
       
-      console.log('📅 Weekly Plans API Response:', response)
-      
       if (response.success && response.data) {
         // The data should already be filtered for weekly plans
         const weeklyPlanEntries = response.data.filter(item => 
@@ -36,13 +34,10 @@ const WeeklySummaryPage = () => {
         weeklyPlanEntries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         
         setWeeklyPlans(weeklyPlanEntries)
-        console.log('📅 Loaded Weekly Plans:', weeklyPlanEntries)
       } else {
-        console.warn('⚠️ No weekly plans found or unsuccessful response:', response)
         setWeeklyPlans([])
       }
     } catch (error) {
-      console.error('Failed to load weekly plans:', error)
       setError('Failed to load weekly plans. Please try again.')
       setWeeklyPlans([])
     } finally {
@@ -78,7 +73,6 @@ const WeeklySummaryPage = () => {
         throw new Error(response.message || 'Failed to generate summary')
       }
     } catch (error) {
-      console.error('Summary generation failed:', error)
       setError(error.message || 'Failed to generate weekly summary')
     } finally {
       setLoading(false)

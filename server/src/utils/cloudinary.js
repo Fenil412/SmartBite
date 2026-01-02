@@ -38,7 +38,6 @@ const deleteFromCloudinary = async (public_id, resource_type = 'image') => {
         
         return result;
     } catch (error) {
-        console.error("Cloudinary deletion error:", error);
         return null;
     }
 };
