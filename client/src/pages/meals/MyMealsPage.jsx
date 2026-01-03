@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit } from 'lucide-react'
+import { Plus, Search, Edit, Download } from 'lucide-react'
 import { mealService } from '../../services/mealService'
+import { pdfService } from '../../services/pdfService'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import MealCard from '../../components/meals/MealCard'
@@ -11,11 +12,13 @@ import LoadingSpinner from '../../components/LoadingSpinner'
 
 const MyMealsPage = () => {
   const { user } = useAuth()
-  const { error } = useToast()
+  const { success, error: showError } = useToast()
   const [meals, setMeals] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({})
   const [currentPage, setCurrentPage] = useState(1)
+
+  const [downloadingPDF, setDownloadingPDF] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -48,9 +51,28 @@ const MyMealsPage = () => {
         })
       }
     } catch (err) {
-      error(err.message || 'Failed to load your meals')
+      showError(err.message || 'Failed to load your meals')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (meals.length === 0) {
+      showError('No meals to export. Create some meals first!')
+      return
+    }
+
+    try {
+      setDownloadingPDF(true)
+      const result = await pdfService.generateMyMealsPDF(meals, user)
+      if (result.success) {
+        success(`PDF downloaded successfully: ${result.filename}`)
+      }
+    } catch (error) {
+      showError(`Failed to generate PDF: ${error.message}`)
+    } finally {
+      setDownloadingPDF(false)
     }
   }
 
@@ -101,13 +123,26 @@ const MyMealsPage = () => {
             </p>
           </div>
           
-          <Link
-            to="/dashboard/meals/create"
-            className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Meal</span>
-          </Link>
+          <div className="flex items-center space-x-3">
+            {meals.length > 0 && (
+              <button
+                onClick={handleDownloadPDF}
+                disabled={downloadingPDF}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                <span>{downloadingPDF ? 'Generating PDF...' : 'Export PDF'}</span>
+              </button>
+            )}
+            
+            <Link
+              to="/dashboard/meals/create"
+              className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Meal</span>
+            </Link>
+          </div>
         </div>
       </motion.div>
 

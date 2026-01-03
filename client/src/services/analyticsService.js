@@ -5,17 +5,22 @@ import { saveAs } from 'file-saver'
 export const analyticsService = {
   // Get comprehensive analytics data
   getAnalytics: async () => {
-    return await api.get('/analytics')
+    try {
+      return await api.get('/analytics')
+    } catch (error) {
+      console.error('Analytics API error:', error)
+      throw new Error(`Failed to load analytics: ${error.response?.data?.message || error.message}`)
+    }
   },
 
   // Export user data in multiple formats
   exportUserData: async (format = 'json') => {
     try {
       const response = await api.get('/analytics/export')
-      const data = response.data
+      const data = response.data?.data || response.data || {}
       
       const timestamp = new Date().toISOString().split('T')[0]
-      const userId = data.userData?._id || 'unknown'
+      const userId = data.userData?._id || data.exportInfo?.userId || 'unknown'
       
       if (format === 'excel') {
         // Create Excel workbook with multiple sheets using ExcelJS
@@ -26,7 +31,7 @@ export const analyticsService = {
         userSheet.addRows([
           ['SmartBite Data Export'],
           ['Export Date', new Date().toLocaleDateString()],
-          ['User ID', data.userData?._id || 'N/A'],
+          ['User ID', data.userData?._id || data.exportInfo?.userId || 'N/A'],
           ['Name', data.userData?.fullName || data.userData?.name || 'N/A'],
           ['Email', data.userData?.email || 'N/A'],
           ['Member Since', data.userData?.createdAt ? new Date(data.userData.createdAt).toLocaleDateString() : 'N/A'],
@@ -166,7 +171,7 @@ export const analyticsService = {
       
     } catch (error) {
       console.error('Export error:', error)
-      throw new Error(`Failed to export data: ${error.message}`)
+      throw new Error(`Failed to export data: ${error.response?.data?.message || error.message}`)
     }
   },
 

@@ -8,8 +8,8 @@ from app.services.user_context_service import upsert_user_context
 
 internal_api = Blueprint("internal_api", __name__)
 
-# Hardcode the secret to ensure it works
-SECRET = "JOu0USVT1q5kN1wkclAttRKWA8LaxMzW"
+# Use environment variable for secret
+SECRET = os.getenv("INTERNAL_HMAC_SECRET", "JOu0USVT1q5kN1wkclAttRKWA8LaxMzW")
 ALLOWED_DRIFT = 300  # 5 minutes
 
 # Helper function to verify HMAC signature

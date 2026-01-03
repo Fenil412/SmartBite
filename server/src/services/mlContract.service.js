@@ -182,10 +182,10 @@ export const getMealCatalogStats = async () => {
 class MLContractService {
     constructor() {
         this.flaskUrl = process.env.FLASK_AI_URL || 'http://127.0.0.1:5000';
-        this.internalKey = process.env.NODE_INTERNAL_KEY;
+        this.internalKey = process.env.INTERNAL_HMAC_SECRET;
         
         if (!this.internalKey) {
-            throw new Error('NODE_INTERNAL_KEY is required for ML contract service');
+            throw new Error('INTERNAL_HMAC_SECRET is required for ML contract service');
         }
     }
 
@@ -193,7 +193,7 @@ class MLContractService {
      * Generate HMAC signature for request authentication
      */
     generateSignature(data, timestamp) {
-        const payload = JSON.stringify(data) + timestamp;
+        const payload = timestamp + JSON.stringify(data);
         return crypto.createHmac('sha256', this.internalKey).update(payload).digest('hex');
     }
 
@@ -201,7 +201,7 @@ class MLContractService {
      * Make authenticated request to Flask AI service
      */
     async makeRequest(endpoint, data) {
-        const timestamp = Date.now().toString();
+        const timestamp = Math.floor(Date.now() / 1000).toString(); // Convert to seconds
         const signature = this.generateSignature(data, timestamp);
         
         try {

@@ -11,13 +11,14 @@ import io
 import hmac
 import hashlib
 import time
+import os
 from functools import wraps
 from ..db.mongo import db
 
 analytics_bp = Blueprint('analytics', __name__)
 
 # Auth configuration
-SECRET = "JOu0USVT1q5kN1wkclAttRKWA8LaxMzW"
+SECRET = os.getenv("INTERNAL_HMAC_SECRET", "JOu0USVT1q5kN1wkclAttRKWA8LaxMzW")
 ALLOWED_DRIFT = 300  # 5 minutes
 
 def get_db_connection():

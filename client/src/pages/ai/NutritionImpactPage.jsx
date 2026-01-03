@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { flaskAiService } from '../../services/flaskAi.service'
+import { pdfService } from '../../services/pdfService'
+import { useToast } from '../../contexts/ToastContext'
 import { 
   Heart, 
   Zap, 
@@ -8,11 +10,13 @@ import {
   Clock,
   AlertTriangle,
   Calendar,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react'
 
 const NutritionImpactPage = () => {
   const { user } = useAuth()
+  const { success, error: showError } = useToast()
   const [weeklyPlans, setWeeklyPlans] = useState([])
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [healthRiskReports, setHealthRiskReports] = useState([])
@@ -127,6 +131,22 @@ const NutritionImpactPage = () => {
       setError(error.message || 'Failed to generate nutrition impact summary')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!selectedPlan || !selectedHealthRisk || !impactSummary) {
+      showError('Please generate an impact summary first before downloading PDF')
+      return
+    }
+
+    try {
+      const result = await pdfService.generateNutritionImpactPDF(selectedPlan, selectedHealthRisk, impactSummary)
+      if (result.success) {
+        success(`PDF downloaded successfully: ${result.filename}`)
+      }
+    } catch (error) {
+      showError(`Failed to generate PDF: ${error.message}`)
     }
   }
 
@@ -543,9 +563,19 @@ const NutritionImpactPage = () => {
           {/* Nutrition Impact Summary Results */}
           {impactSummary && (
             <div className="space-y-6">
-              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                Comprehensive Nutrition Impact Analysis
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  Comprehensive Nutrition Impact Analysis
+                </h3>
+                
+                <button
+                  onClick={handleDownloadPDF}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Download PDF</span>
+                </button>
+              </div>
 
               {/* Main AI Summary */}
               {impactSummary.summary && (

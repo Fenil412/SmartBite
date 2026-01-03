@@ -634,16 +634,29 @@ const WeeklyPlanPage = () => {
                              weeklyPlan.weeklyPlan[day].includes('**Breakfast') ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                                 {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map((mealType) => {
-                                  const mealRegex = new RegExp(`\\*\\*${mealType}[:\\*]*\\*\\*([\\s\\S]*?)(?=\\*\\*|$)`, 'i')
-                                  const altRegex = new RegExp(`${mealType}:([\\s\\S]*?)(?=\\n\\n|\\n[A-Z]|$)`, 'i')
+                                  // Multiple regex patterns to catch different formats
+                                  const patterns = [
+                                    new RegExp(`\\*\\*${mealType}[:\\*]*\\*\\*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
+                                    new RegExp(`${mealType}:([\\s\\S]*?)(?=\\n\\n|\\n[A-Z]|$)`, 'i'),
+                                    new RegExp(`\\*\\*${mealType}\\*\\*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
+                                    new RegExp(`${mealType}\\s*:([\\s\\S]*?)(?=\\n\\s*\\n|\\n\\s*[A-Z]|$)`, 'i'),
+                                    // Handle snacks specifically
+                                    mealType === 'Snack' ? new RegExp(`(snacks?|evening\\s+snack)\\s*:([\\s\\S]*?)(?=\\n\\s*\\n|\\n\\s*[A-Z]|$)`, 'i') : null
+                                  ].filter(Boolean)
                                   
                                   let mealContent = ''
-                                  const match = weeklyPlan.weeklyPlan[day].match(mealRegex) || weeklyPlan.weeklyPlan[day].match(altRegex)
                                   
-                                  if (match) {
-                                    mealContent = match[1].trim()
+                                  // Try each pattern until we find a match
+                                  for (const pattern of patterns) {
+                                    const match = weeklyPlan.weeklyPlan[day].match(pattern)
+                                    if (match) {
+                                      mealContent = match[1] || match[2] || ''
+                                      mealContent = mealContent.trim()
+                                      break
+                                    }
                                   }
                                   
+                                  // If no structured content found, skip this meal type
                                   if (!mealContent) return null
                                   
                                   return (

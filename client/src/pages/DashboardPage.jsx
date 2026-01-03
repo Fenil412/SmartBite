@@ -59,9 +59,10 @@ const DashboardPage = () => {
       
       // Fetch comprehensive analytics data from new analytics service
       const response = await analyticsService.getAnalytics()
-      setAnalyticsData(response.data)
+      setAnalyticsData(response.data?.data || response.data)
       
     } catch (error) {
+      console.error('Analytics load error:', error)
       showError('Failed to load analytics data')
     } finally {
       setLoading(false)
@@ -74,7 +75,8 @@ const DashboardPage = () => {
       await analyticsService.exportUserData(format)
       showSuccess(`Data exported successfully as ${format.toUpperCase()}`)
     } catch (error) {
-      showError('Failed to export data')
+      console.error('Export error:', error)
+      showError(`Failed to export data: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -110,10 +112,10 @@ const DashboardPage = () => {
       icon: Brain,
       label: 'AI Interactions',
       value: analyticsData?.counts?.totalAiInteractions || 0,
-      description: 'AI conversations & analyses',
+      description: analyticsData?.flaskAnalytics ? 'AI conversations & analyses' : 'Flask AI service offline',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20',
-      trend: 'Smart insights'
+      trend: analyticsData?.flaskAnalytics ? 'Smart insights' : 'Service unavailable'
     },
     {
       icon: MessageSquare,
@@ -167,23 +169,31 @@ const DashboardPage = () => {
     {
       icon: ChefHat,
       title: 'Latest Meal Plan',
-      description: analyticsData?.recent?.latestMealPlan?.title || 'No meal plans yet',
+      description: analyticsData?.recent?.latestMealPlan?.title || 'No meal plans created yet',
       time: analyticsData?.recent?.latestMealPlan?.createdAt ? new Date(analyticsData.recent.latestMealPlan.createdAt).toLocaleDateString() : 'N/A',
-      status: 'success'
+      status: analyticsData?.recent?.latestMealPlan ? 'success' : 'warning'
     },
     {
       icon: Brain,
       title: 'Recent AI Activity',
-      description: analyticsData?.flaskAnalytics?.recentActivity?.[0]?.action || 'No AI interactions yet',
-      time: analyticsData?.flaskAnalytics?.recentActivity?.[0]?.timestamp ? new Date(analyticsData.flaskAnalytics.recentActivity[0].timestamp).toLocaleDateString() : 'N/A',
-      status: 'info'
+      description: analyticsData?.flaskAnalytics?.recentActivity?.[0]?.action ? 
+        `${analyticsData.flaskAnalytics.recentActivity[0].action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 
+        analyticsData?.flaskAnalytics ? 'No recent AI interactions' : 'AI service offline',
+      time: analyticsData?.flaskAnalytics?.recentActivity?.[0]?.timestamp ? 
+        new Date(analyticsData.flaskAnalytics.recentActivity[0].timestamp).toLocaleDateString() : 
+        'N/A',
+      status: analyticsData?.flaskAnalytics?.recentActivity?.[0] ? 'info' : 'warning'
     },
     {
       icon: Target,
       title: 'Latest Feedback',
-      description: analyticsData?.recent?.latestFeedback ? `${analyticsData.recent.latestFeedback.rating}/5 stars` : 'No feedback yet',
-      time: analyticsData?.recent?.latestFeedback?.createdAt ? new Date(analyticsData.recent.latestFeedback.createdAt).toLocaleDateString() : 'N/A',
-      status: 'warning'
+      description: analyticsData?.recent?.latestFeedback ? 
+        `${analyticsData.recent.latestFeedback.rating}/5 stars - ${analyticsData.recent.latestFeedback.comment || 'No comment'}` : 
+        'No feedback given yet',
+      time: analyticsData?.recent?.latestFeedback?.createdAt ? 
+        new Date(analyticsData.recent.latestFeedback.createdAt).toLocaleDateString() : 
+        'N/A',
+      status: analyticsData?.recent?.latestFeedback ? 'success' : 'warning'
     }
   ]
 
@@ -217,26 +227,33 @@ const DashboardPage = () => {
               </button>
               
               {showExportDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-10 overflow-hidden">
                   <div className="py-2">
+                    <div className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+                      Export Format
+                    </div>
                     <button
                       onClick={() => exportAllData('json')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center space-x-3 transition-colors"
                     >
-                      <span className="text-lg">📄</span>
-                      <div>
-                        <div className="font-medium">Export as JSON</div>
-                        <div className="text-xs text-gray-500">Structured data format</div>
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📄</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white">Export as JSON</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Structured data format for developers</div>
                       </div>
                     </button>
                     <button
                       onClick={() => exportAllData('excel')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center space-x-3 transition-colors"
                     >
-                      <span className="text-lg">📊</span>
-                      <div>
-                        <div className="font-medium">Export as Excel</div>
-                        <div className="text-xs text-gray-500">Spreadsheet format</div>
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📊</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white">Export as Excel</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Spreadsheet format with multiple sheets</div>
                       </div>
                     </button>
                   </div>
@@ -252,6 +269,29 @@ const DashboardPage = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* AI Service Status Banner */}
+      {!analyticsData?.flaskAnalytics && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.05 }}
+          className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4"
+        >
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="h-5 w-5 text-yellow-600" />
+            <div>
+              <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                AI Service Offline
+              </h4>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                The Flask AI service is currently offline. AI interaction counts and recent AI activity may not be available. 
+                Your meal plans, feedback, and other data are still accessible.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Data Statistics Grid */}
       <motion.div
@@ -434,6 +474,11 @@ const DashboardPage = () => {
               <div className="flex items-center space-x-3">
                 <Brain className="h-5 w-5 text-purple-600" />
                 <span className="text-sm font-medium text-gray-900 dark:text-white">AI Data</span>
+                {!analyticsData?.flaskAnalytics && (
+                  <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded-full">
+                    Offline
+                  </span>
+                )}
               </div>
               <span className="text-sm font-bold text-purple-600">
                 {analyticsData?.flaskAnalytics?.dataBreakdown?.totalDocuments || 0} records
@@ -493,12 +538,19 @@ const DashboardPage = () => {
                 <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
                   {activity.title}
                 </h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                   {activity.description}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  {activity.time}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    {activity.time}
+                  </p>
+                  {activity.status === 'warning' && (
+                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded-full">
+                      No data
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -520,7 +572,11 @@ const DashboardPage = () => {
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               You have stored {Math.round((analyticsData?.flaskAnalytics?.storageStats?.totalSizeKB || 0) + 50)} KB of data across {dataStats.reduce((sum, stat) => sum + stat.value, 0)} items.
-              Your data includes meal plans, AI interactions, feedback, and profile information. All data is securely stored and can be exported or deleted at any time.
+              Your data includes meal plans, AI interactions{analyticsData?.flaskAnalytics ? '' : ' (service offline)'}, feedback, and profile information. 
+              {analyticsData?.flaskAnalytics ? 
+                'All data is securely stored and can be exported or deleted at any time.' : 
+                'Note: AI service is currently offline, so AI interaction data may not be available for export.'
+              }
             </p>
           </div>
           <div className="flex space-x-3">
@@ -535,26 +591,33 @@ const DashboardPage = () => {
               </button>
               
               {showExportDropdown && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-10 overflow-hidden">
                   <div className="py-2">
+                    <div className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+                      Export Format
+                    </div>
                     <button
                       onClick={() => exportAllData('json')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center space-x-3 transition-colors"
                     >
-                      <span className="text-lg">📄</span>
-                      <div>
-                        <div className="font-medium">Export as JSON</div>
-                        <div className="text-xs text-gray-500">Structured data format</div>
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📄</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white">Export as JSON</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Structured data format for developers</div>
                       </div>
                     </button>
                     <button
                       onClick={() => exportAllData('excel')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center space-x-3 transition-colors"
                     >
-                      <span className="text-lg">📊</span>
-                      <div>
-                        <div className="font-medium">Export as Excel</div>
-                        <div className="text-xs text-gray-500">Spreadsheet format</div>
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📊</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white">Export as Excel</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Spreadsheet format with multiple sheets</div>
                       </div>
                     </button>
                   </div>

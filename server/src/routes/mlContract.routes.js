@@ -7,7 +7,6 @@ import {
 } from "../controllers/mlContract.controller.js";
 import { mlContractService } from '../services/mlContract.service.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
-import { ApiResponse } from '../utils/ApiResponse.js'
 import { ApiError } from '../utils/ApiError.js'
 
 const router = Router();
@@ -31,9 +30,11 @@ router.get('/ai-user-context/:userId', authMiddleware, asyncHandler(async (req, 
   
   try {
     const context = await mlContractService.getAIUserContext(userId)
-    return res.status(200).json(
-      new ApiResponse(200, context, "AI user context retrieved successfully")
-    )
+    return res.status(200).json({
+      success: true,
+      data: context,
+      message: "AI user context retrieved successfully"
+    })
   } catch (error) {
     throw new ApiError(`Failed to get AI user context: ${error.message}`, 500)
   }
@@ -45,9 +46,11 @@ router.get('/analytics/:userId', authMiddleware, asyncHandler(async (req, res) =
   
   try {
     const analytics = await mlContractService.getAnalytics(userId)
-    return res.status(200).json(
-      new ApiResponse(200, analytics, "Flask analytics retrieved successfully")
-    )
+    return res.status(200).json({
+      success: true,
+      data: analytics,
+      message: "Flask analytics retrieved successfully"
+    })
   } catch (error) {
     throw new ApiError(`Failed to get Flask analytics: ${error.message}`, 500)
   }
@@ -59,9 +62,11 @@ router.get('/export-data/:userId', authMiddleware, asyncHandler(async (req, res)
   
   try {
     const exportData = await mlContractService.exportUserData(userId)
-    return res.status(200).json(
-      new ApiResponse(200, exportData, "Flask data exported successfully")
-    )
+    return res.status(200).json({
+      success: true,
+      data: exportData,
+      message: "Flask data exported successfully"
+    })
   } catch (error) {
     throw new ApiError(`Failed to export Flask data: ${error.message}`, 500)
   }

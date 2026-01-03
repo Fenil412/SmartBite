@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { flaskAiService } from '../../services/flaskAi.service'
-import { FileText, Sparkles, Calendar, Clock } from 'lucide-react'
+import { pdfService } from '../../services/pdfService'
+import { useToast } from '../../contexts/ToastContext'
+import { FileText, Sparkles, Calendar, Clock, Download } from 'lucide-react'
 
 const WeeklySummaryPage = () => {
   const { user } = useAuth()
+  const { success, error: showError } = useToast()
   const [weeklyPlans, setWeeklyPlans] = useState([])
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [summary, setSummary] = useState(null)
@@ -76,6 +79,22 @@ const WeeklySummaryPage = () => {
       setError(error.message || 'Failed to generate weekly summary')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!selectedPlan || !summary) {
+      showError('Please generate a summary first before downloading PDF')
+      return
+    }
+
+    try {
+      const result = await pdfService.generateWeeklySummaryPDF(selectedPlan, summary)
+      if (result.success) {
+        success(`PDF downloaded successfully: ${result.filename}`)
+      }
+    } catch (error) {
+      showError(`Failed to generate PDF: ${error.message}`)
     }
   }
 
@@ -301,11 +320,21 @@ const WeeklySummaryPage = () => {
       {/* Summary Results */}
       {summary && (
         <div className="space-y-6">
-          <div className="flex items-center">
-            <FileText className="h-6 w-6 text-green-600 mr-2" />
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              AI Weekly Meal Plan Summary
-            </h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FileText className="h-6 w-6 text-green-600 mr-2" />
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                AI Weekly Meal Plan Summary
+              </h2>
+            </div>
+            
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span>Download PDF</span>
+            </button>
           </div>
 
           {/* AI Summary Content */}

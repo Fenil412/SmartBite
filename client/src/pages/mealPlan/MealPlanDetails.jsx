@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Edit, Trash2, Calendar, BarChart3, MessageSquare, ShoppingCart } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, Calendar, BarChart3, MessageSquare, ShoppingCart, Download } from 'lucide-react'
 import { mealPlanService } from '../../services/mealPlanService'
+import { pdfService } from '../../services/pdfService'
 import { useToast } from '../../contexts/ToastContext'
 import WeekCalendar from '../../components/mealPlan/WeekCalendar'
 import LoadingSpinner from '../../components/LoadingSpinner'
@@ -10,7 +11,7 @@ import LoadingSpinner from '../../components/LoadingSpinner'
 const MealPlanDetails = () => {
   const { planId } = useParams()
   const navigate = useNavigate()
-  const { success, error } = useToast()
+  const { success, error: showError } = useToast()
   
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -30,7 +31,7 @@ const MealPlanDetails = () => {
         setPlan(response.data.plan)
       }
     } catch (err) {
-      error(err.message || 'Failed to load meal plan')
+      showError(err.message || 'Failed to load meal plan')
       navigate('/dashboard/meal-planner')
     } finally {
       setLoading(false)
@@ -65,6 +66,15 @@ const MealPlanDetails = () => {
     }))
   }
 
+  const handleDownloadPDF = async () => {
+    try {
+      await pdfService.generateMealPlanPDF(plan)
+      success('Meal plan PDF downloaded successfully')
+    } catch (error) {
+      showError(`Failed to download PDF: ${error.message}`)
+    }
+  }
+
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
@@ -74,7 +84,7 @@ const MealPlanDetails = () => {
         navigate('/dashboard/meal-planner')
       }
     } catch (err) {
-      error(err.message || 'Failed to delete meal plan')
+      showError(err.message || 'Failed to delete meal plan')
     } finally {
       setIsDeleting(false)
       setShowDeleteModal(false)
@@ -190,6 +200,14 @@ const MealPlanDetails = () => {
           </div>
           
           <div className="flex items-center space-x-2">
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span>Download PDF</span>
+            </button>
+            
             <Link
               to={`/dashboard/grocery/${planId}`}
               className="flex items-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"

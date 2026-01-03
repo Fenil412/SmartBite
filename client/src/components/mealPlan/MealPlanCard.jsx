@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Calendar, Eye, Edit, Trash2, BarChart3 } from 'lucide-react'
+import { Calendar, Eye, Edit, Trash2, BarChart3, Download } from 'lucide-react'
 import { mealPlanService } from '../../services/mealPlanService'
+import { pdfService } from '../../services/pdfService'
 import { useToast } from '../../contexts/ToastContext'
 
 const MealPlanCard = ({ plan, onDelete }) => {
-  const { success, error } = useToast()
+  const { success, error: showError } = useToast()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -24,6 +25,15 @@ const MealPlanCard = ({ plan, onDelete }) => {
     return endDate
   }
 
+  const handleDownloadPDF = async () => {
+    try {
+      await pdfService.generateMealPlanPDF(plan)
+      success('Meal plan PDF downloaded successfully')
+    } catch (error) {
+      showError(`Failed to download PDF: ${error.message}`)
+    }
+  }
+
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
@@ -34,7 +44,7 @@ const MealPlanCard = ({ plan, onDelete }) => {
         setShowDeleteModal(false)
       }
     } catch (err) {
-      error(err.message || 'Failed to delete meal plan')
+      showError(err.message || 'Failed to delete meal plan')
     } finally {
       setIsDeleting(false)
     }
@@ -95,6 +105,14 @@ const MealPlanCard = ({ plan, onDelete }) => {
               >
                 <Eye className="h-4 w-4" />
               </Link>
+              
+              <button
+                onClick={handleDownloadPDF}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                title="Download PDF"
+              >
+                <Download className="h-4 w-4" />
+              </button>
               
               <Link
                 to={`/dashboard/meal-planner/${plan._id}/edit`}

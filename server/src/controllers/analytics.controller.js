@@ -1,9 +1,9 @@
 import { User } from '../models/user.model.js'
+import { Meal } from '../models/meal.model.js'
 import { MealPlan } from '../models/mealPlan.model.js'
 import { Feedback } from '../models/feedback.model.js'
 import { Constraint } from '../models/constraint.model.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
-import { ApiResponse } from '../utils/ApiResponse.js'
 import { ApiError } from '../utils/ApiError.js'
 import { mlContractService } from '../services/mlContract.service.js'
 
@@ -15,21 +15,28 @@ const getAnalytics = asyncHandler(async (req, res) => {
     // Fetch all data in parallel
     const [
       user,
-      mealPlans,
+      totalMeals,
+      totalMealPlans,
       feedbacks,
-      constraints
+      constraints,
+      latestMealPlan
     ] = await Promise.allSettled([
       User.findById(userId).select('-password -refreshToken'),
-      MealPlan.find({ user: userId }).populate('meals.meal'),
-      Feedback.find({ user: userId }),
-      Constraint.find({ user: userId })
+      Meal.countDocuments({ createdBy: userId }), // Count ALL meals created by user (removed isActive filter)
+      MealPlan.countDocuments({ user: userId }), // Count all meal plans (past, current, future)
+      Feedback.find({ user: userId }).sort({ createdAt: -1 }),
+      Constraint.find({ user: userId }).sort({ createdAt: -1 }),
+      MealPlan.findOne({ user: userId }).sort({ createdAt: -1 }).select('title createdAt weekStartDate')
     ])
 
     // Try to get Flask analytics, but don't fail if Flask is not available
     let flaskData = null
+    let totalAiInteractions = 0
+    
     try {
       const flaskAnalytics = await mlContractService.getAnalytics(userId)
-      flaskData = flaskAnalytics
+      flaskData = flaskAnalytics?.data || flaskAnalytics // Handle both response formats
+      totalAiInteractions = flaskData?.totalInteractions || 0
     } catch (error) {
       console.log('Flask analytics not available:', error.message)
       // Continue without Flask data
@@ -37,16 +44,11 @@ const getAnalytics = asyncHandler(async (req, res) => {
 
     // Process results
     const userData = user.status === 'fulfilled' ? user.value : null
-    const mealPlansData = mealPlans.status === 'fulfilled' ? mealPlans.value : []
+    const mealCount = totalMeals.status === 'fulfilled' ? totalMeals.value : 0
+    const mealPlanCount = totalMealPlans.status === 'fulfilled' ? totalMealPlans.value : 0
     const feedbacksData = feedbacks.status === 'fulfilled' ? feedbacks.value : []
     const constraintsData = constraints.status === 'fulfilled' ? constraints.value : []
-
-    // Calculate statistics
-    const totalMeals = mealPlansData.reduce((total, plan) => {
-      return total + (plan.days?.reduce((dayTotal, day) => {
-        return dayTotal + (day.meals?.length || 0)
-      }, 0) || 0)
-    }, 0)
+    const latestMealPlanData = latestMealPlan.status === 'fulfilled' ? latestMealPlan.value : null
 
     const accountAge = userData?.createdAt 
       ? Math.floor((Date.now() - new Date(userData.createdAt).getTime()) / (1000 * 60 * 60 * 24))
@@ -55,15 +57,20 @@ const getAnalytics = asyncHandler(async (req, res) => {
     // Calculate activity days (days with any data creation)
     const activityDates = new Set()
     
-    mealPlansData.forEach(plan => {
-      if (plan.createdAt) {
-        activityDates.add(new Date(plan.createdAt).toDateString())
-      }
-    })
+    // Add meal creation dates
+    if (userData?.createdAt) {
+      activityDates.add(new Date(userData.createdAt).toDateString())
+    }
     
     feedbacksData.forEach(feedback => {
       if (feedback.createdAt) {
         activityDates.add(new Date(feedback.createdAt).toDateString())
+      }
+    })
+
+    constraintsData.forEach(constraint => {
+      if (constraint.createdAt) {
+        activityDates.add(new Date(constraint.createdAt).toDateString())
       }
     })
 
@@ -79,28 +86,32 @@ const getAnalytics = asyncHandler(async (req, res) => {
         avatar: userData?.avatar
       },
 
-      // Data counts
+      // Data counts - CORRECTED
       counts: {
-        totalMealPlans: mealPlansData.length,
-        totalMeals: totalMeals,
+        totalMealPlans: mealPlanCount, // All meal plans (past, current, future)
+        totalMeals: mealCount, // All individual meals created by user
         totalFeedbacks: feedbacksData.length,
         totalConstraints: constraintsData.length,
-        totalAiInteractions: flaskData?.totalInteractions || 0
+        totalAiInteractions: totalAiInteractions // All Flask API interactions
       },
 
       // Statistics
       statistics: {
         accountAge: accountAge,
         activeDays: activityDates.size,
-        averageMealsPerPlan: mealPlansData.length > 0 ? Math.round(totalMeals / mealPlansData.length) : 0,
-        feedbackRate: totalMeals > 0 ? Math.round((feedbacksData.length / totalMeals) * 100) : 0
+        averageMealsPerPlan: mealPlanCount > 0 ? Math.round(mealCount / mealPlanCount) : 0,
+        feedbackRate: mealCount > 0 ? Math.round((feedbacksData.length / mealCount) * 100) : 0
       },
 
       // Recent data
       recent: {
-        latestMealPlan: mealPlansData[0] || null,
-        latestFeedback: feedbacksData[0] || null,
-        latestConstraint: constraintsData[0] || null
+        latestMealPlan: latestMealPlanData ? {
+          title: latestMealPlanData.title,
+          createdAt: latestMealPlanData.createdAt,
+          weekStartDate: latestMealPlanData.weekStartDate
+        } : null,
+        latestFeedback: feedbacksData.length > 0 ? feedbacksData[0] : null,
+        latestConstraint: constraintsData.length > 0 ? constraintsData[0] : null
       },
 
       // Flask analytics (may be null if Flask is not available)
@@ -108,30 +119,34 @@ const getAnalytics = asyncHandler(async (req, res) => {
 
       // Data breakdown
       breakdown: {
-        mealPlans: mealPlansData.map(plan => ({
-          id: plan._id,
-          title: plan.title,
-          createdAt: plan.createdAt,
-          mealCount: plan.days?.reduce((total, day) => total + (day.meals?.length || 0), 0) || 0
-        })),
-        feedbacks: feedbacksData.map(feedback => ({
-          id: feedback._id,
-          rating: feedback.rating,
-          createdAt: feedback.createdAt,
-          meal: feedback.meal
-        })),
-        constraints: constraintsData.map(constraint => ({
-          id: constraint._id,
-          type: constraint.type,
-          value: constraint.value,
-          createdAt: constraint.createdAt
-        }))
+        mealPlans: {
+          total: mealPlanCount,
+          description: 'All meal plans created (past, current, and future)'
+        },
+        meals: {
+          total: mealCount,
+          description: 'All individual meals created by user'
+        },
+        feedbacks: {
+          total: feedbacksData.length,
+          description: 'All meal ratings and reviews'
+        },
+        constraints: {
+          total: constraintsData.length,
+          description: 'All dietary constraints and preferences'
+        },
+        aiInteractions: {
+          total: totalAiInteractions,
+          description: 'All AI interactions from Flask backend'
+        }
       }
     }
 
-    return res.status(200).json(
-      new ApiResponse(200, analytics, "Analytics data retrieved successfully")
-    )
+    return res.status(200).json({
+      success: true,
+      data: analytics,
+      message: "Analytics data retrieved successfully"
+    })
 
   } catch (error) {
     console.error('Analytics error:', error)
@@ -199,11 +214,11 @@ const exportUserData = asyncHandler(async (req, res) => {
       }
     }
 
-    // Set headers for file download
-    res.setHeader('Content-Type', 'application/json')
-    res.setHeader('Content-Disposition', `attachment; filename="smartbite-data-${userId}-${Date.now()}.json"`)
-
-    return res.status(200).json(exportData)
+    return res.status(200).json({
+      success: true,
+      data: exportData,
+      message: "Data exported successfully"
+    })
 
   } catch (error) {
     console.error('Export error:', error)
@@ -233,9 +248,11 @@ const getFeedbackStats = asyncHandler(async (req, res) => {
       recent: feedbacks.slice(0, 10)
     }
 
-    return res.status(200).json(
-      new ApiResponse(200, stats, "Feedback statistics retrieved successfully")
-    )
+    return res.status(200).json({
+      success: true,
+      data: stats,
+      message: "Feedback statistics retrieved successfully"
+    })
 
   } catch (error) {
     throw new ApiError(`Failed to fetch feedback stats: ${error.message}`, 500)
@@ -258,9 +275,11 @@ const getConstraintStats = asyncHandler(async (req, res) => {
       recent: constraints.slice(0, 10)
     }
 
-    return res.status(200).json(
-      new ApiResponse(200, stats, "Constraint statistics retrieved successfully")
-    )
+    return res.status(200).json({
+      success: true,
+      data: stats,
+      message: "Constraint statistics retrieved successfully"
+    })
 
   } catch (error) {
     throw new ApiError(`Failed to fetch constraint stats: ${error.message}`, 500)
