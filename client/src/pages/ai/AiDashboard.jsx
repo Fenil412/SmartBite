@@ -12,53 +12,247 @@ import {
   Sparkles,
   ArrowRight,
   Brain,
-  Zap
+  Zap,
+  Download,
+  Activity,
+  TrendingUp,
+  Target,
+  Database,
+  ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { flaskAiService } from '../../services/flaskAi.service'
+import { useToast } from '../../contexts/ToastContext'
+import { saveAs } from 'file-saver'
+import ExcelJS from 'exceljs'
 
 const AiDashboard = () => {
   const { user } = useAuth()
+  const { success: showSuccess, error: showError } = useToast()
   const [recentActivity, setRecentActivity] = useState([])
+  const [aiStats, setAiStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showExportDropdown, setShowExportDropdown] = useState(false)
 
   useEffect(() => {
-    loadRecentActivity()
+    loadAiDashboardData()
   }, [user])
 
-  const loadRecentActivity = async () => {
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showExportDropdown && !event.target.closest('.ai-export-dropdown')) {
+        setShowExportDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showExportDropdown])
+
+  const loadAiDashboardData = async () => {
     if (!user?._id) return
     
     try {
-      const response = await flaskAiService.getHistory(user._id)
-      if (response.success) {
-        // Transform API response to match frontend expectations (same as AiHistoryPage)
-        const transformedHistory = (response.data || []).map(item => {
-          const transformed = {
-            ...item,
-            type: item.action || item.type, // Map 'action' to 'type', fallback to existing type
-            timestamp: item.createdAt || item.timestamp, // Map 'createdAt' to 'timestamp', fallback to existing
-            username: item.username || user.username || 'Unknown User'
-          }
-          return transformed
-        })
+      setLoading(true)
+      
+      // Load AI history and statistics
+      const [historyResponse, weeklyPlansResponse, healthReportsResponse] = await Promise.allSettled([
+        flaskAiService.getHistory(user._id),
+        flaskAiService.getWeeklyPlans(user._id),
+        flaskAiService.getHealthRiskReports(user._id)
+      ])
+      
+      // Process AI history
+      if (historyResponse.status === 'fulfilled' && historyResponse.value.success) {
+        const transformedHistory = (historyResponse.value.data || []).map(item => ({
+          ...item,
+          type: item.action || item.type,
+          timestamp: item.createdAt || item.timestamp,
+          username: item.username || user.username || 'Unknown User'
+        }))
         
-        // Sort by timestamp in descending order (newest first)
-        transformedHistory.sort((a, b) => {
-          const dateA = new Date(a.timestamp)
-          const dateB = new Date(b.timestamp)
-          return dateB - dateA // Newest first
-        })
-        
-        // Get last 3 activities
+        transformedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         setRecentActivity(transformedHistory.slice(0, 3))
+        
+        // Calculate statistics
+        const stats = {
+          totalInteractions: transformedHistory.length,
+          weeklyPlans: weeklyPlansResponse.status === 'fulfilled' ? (weeklyPlansResponse.value.data || []).length : 0,
+          healthReports: healthReportsResponse.status === 'fulfilled' ? (healthReportsResponse.value.data || []).length : 0,
+          chatMessages: transformedHistory.filter(item => item.type === 'chat' || item.type === 'chat/generateResponse').length,
+          mealAnalyses: transformedHistory.filter(item => item.type === 'analyze-meals' || item.type === 'meal_analysis').length,
+          last7Days: transformedHistory.filter(item => {
+            const itemDate = new Date(item.timestamp)
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            return itemDate > sevenDaysAgo
+          }).length
+        }
+        
+        setAiStats(stats)
       }
     } catch (error) {
-      console.error('Failed to load recent AI activity:', error)
+      console.error('Failed to load AI dashboard data:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  const exportAiData = async (format = 'json') => {
+    try {
+      setShowExportDropdown(false)
+      
+      // Fetch comprehensive AI data
+      const [historyResponse, weeklyPlansResponse, healthReportsResponse] = await Promise.allSettled([
+        flaskAiService.getHistory(user._id),
+        flaskAiService.getWeeklyPlans(user._id),
+        flaskAiService.getHealthRiskReports(user._id)
+      ])
+      
+      const aiHistory = historyResponse.status === 'fulfilled' ? historyResponse.value.data || [] : []
+      const weeklyPlans = weeklyPlansResponse.status === 'fulfilled' ? weeklyPlansResponse.value.data || [] : []
+      const healthReports = healthReportsResponse.status === 'fulfilled' ? healthReportsResponse.value.data || [] : []
+      
+      const timestamp = new Date().toISOString().split('T')[0]
+      const userId = user._id
+      
+      if (format === 'excel') {
+        const workbook = new ExcelJS.Workbook()
+        
+        // AI Summary Sheet
+        const summarySheet = workbook.addWorksheet('AI Summary')
+        summarySheet.addRows([
+          ['SmartBite AI Data Export'],
+          ['Export Date', new Date().toLocaleDateString()],
+          ['User', user.fullName || user.name || 'N/A'],
+          ['User ID', userId],
+          [],
+          ['AI Statistics'],
+          ['Total AI Interactions', aiHistory.length],
+          ['Chat Messages', aiHistory.filter(item => item.action === 'chat' || item.action === 'chat/generateResponse').length],
+          ['Meal Analyses', aiHistory.filter(item => item.action === 'analyze-meals').length],
+          ['Weekly Plans Generated', weeklyPlans.length],
+          ['Health Risk Reports', healthReports.length],
+          ['Last 7 Days Activity', aiHistory.filter(item => {
+            const itemDate = new Date(item.createdAt)
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            return itemDate > sevenDaysAgo
+          }).length]
+        ])
+        
+        // Style headers
+        summarySheet.getCell('A1').font = { bold: true, size: 14 }
+        summarySheet.getCell('A6').font = { bold: true, size: 12 }
+        
+        // AI History Sheet
+        if (aiHistory.length > 0) {
+          const historySheet = workbook.addWorksheet('AI History')
+          historySheet.addRow(['Date', 'Action', 'Type', 'Status'])
+          historySheet.getRow(1).font = { bold: true }
+          
+          aiHistory.forEach(item => {
+            historySheet.addRow([
+              item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A',
+              item.action || 'N/A',
+              item.type || 'N/A',
+              'Completed'
+            ])
+          })
+        }
+        
+        // Weekly Plans Sheet
+        if (weeklyPlans.length > 0) {
+          const plansSheet = workbook.addWorksheet('Weekly Plans')
+          plansSheet.addRow(['Date Created', 'Plan Type', 'Status'])
+          plansSheet.getRow(1).font = { bold: true }
+          
+          weeklyPlans.forEach(plan => {
+            plansSheet.addRow([
+              plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'N/A',
+              'Weekly Meal Plan',
+              'Generated'
+            ])
+          })
+        }
+        
+        // Health Reports Sheet
+        if (healthReports.length > 0) {
+          const reportsSheet = workbook.addWorksheet('Health Reports')
+          reportsSheet.addRow(['Date', 'Report Type', 'Risk Level'])
+          reportsSheet.getRow(1).font = { bold: true }
+          
+          healthReports.forEach(report => {
+            reportsSheet.addRow([
+              report.createdAt ? new Date(report.createdAt).toLocaleDateString() : 'N/A',
+              'Health Risk Assessment',
+              report.data?.overallRisk || 'N/A'
+            ])
+          })
+        }
+        
+        const buffer = await workbook.xlsx.writeBuffer()
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        saveAs(blob, `smartbite-ai-data-${userId}-${timestamp}.xlsx`)
+        
+      } else {
+        // JSON format
+        const exportData = {
+          exportInfo: {
+            exportDate: new Date().toISOString(),
+            userId: userId,
+            userName: user.fullName || user.name,
+            type: 'SmartBite AI Data Export',
+            version: '2.0'
+          },
+          statistics: {
+            totalInteractions: aiHistory.length,
+            chatMessages: aiHistory.filter(item => item.action === 'chat' || item.action === 'chat/generateResponse').length,
+            mealAnalyses: aiHistory.filter(item => item.action === 'analyze-meals').length,
+            weeklyPlans: weeklyPlans.length,
+            healthReports: healthReports.length,
+            last7DaysActivity: aiHistory.filter(item => {
+              const itemDate = new Date(item.createdAt)
+              const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+              return itemDate > sevenDaysAgo
+            }).length
+          },
+          data: {
+            aiHistory: aiHistory,
+            weeklyPlans: weeklyPlans,
+            healthReports: healthReports
+          },
+          readme: {
+            description: 'This file contains all your SmartBite AI interaction data.',
+            sections: {
+              statistics: 'Summary of your AI usage patterns',
+              aiHistory: 'Complete history of AI interactions including chats, analyses, and generations',
+              weeklyPlans: 'AI-generated weekly meal plans',
+              healthReports: 'Health risk assessment reports'
+            },
+            dataTypes: {
+              chat: 'AI chat conversations',
+              'analyze-meals': 'Nutritional meal analyses',
+              'generate-weekly-plan': 'Weekly meal plan generations',
+              'health-risk-report': 'Health risk assessments',
+              'nutrition-impact-summary': 'Nutrition impact analyses'
+            }
+          }
+        }
+        
+        const dataStr = JSON.stringify(exportData, null, 2)
+        const dataBlob = new Blob([dataStr], { type: 'application/json' })
+        saveAs(dataBlob, `smartbite-ai-data-${userId}-${timestamp}.json`)
+      }
+      
+      showSuccess(`AI data exported successfully as ${format.toUpperCase()}`)
+    } catch (error) {
+      console.error('Export error:', error)
+      showError('Failed to export AI data')
+    }
+  }
+
+  const loadRecentActivity = loadAiDashboardData // Alias for backward compatibility
 
   const aiFeatures = [
     {
@@ -238,17 +432,59 @@ const AiDashboard = () => {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl">
-            <Brain className="h-8 w-8 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl">
+              <Brain className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                AI Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Powered by advanced AI to optimize your nutrition journey
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              AI Dashboard
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Powered by advanced AI to optimize your nutrition journey
-            </p>
+          
+          <div className="flex items-center space-x-3">
+            <div className="relative ai-export-dropdown">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export AI Data</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showExportDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                  <div className="py-2">
+                    <button
+                      onClick={() => exportAiData('json')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                    >
+                      <span className="text-lg">📄</span>
+                      <div>
+                        <div className="font-medium">Export as JSON</div>
+                        <div className="text-xs text-gray-500">AI data in JSON format</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => exportAiData('excel')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                    >
+                      <span className="text-lg">📊</span>
+                      <div>
+                        <div className="font-medium">Export as Excel</div>
+                        <div className="text-xs text-gray-500">AI data in spreadsheet</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
@@ -261,6 +497,123 @@ const AiDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Statistics */}
+      {aiStats && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+            Your AI Usage Statistics
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-blue-500 rounded-lg">
+                  <Brain className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded-full">
+                  Total
+                </span>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">
+                  {aiStats.totalInteractions}
+                </p>
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                  AI Interactions
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  All AI conversations & analyses
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-green-500 rounded-lg">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded-full">
+                  Chats
+                </span>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-green-900 dark:text-green-100 mb-1">
+                  {aiStats.chatMessages}
+                </p>
+                <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-1">
+                  Chat Messages
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  AI nutritionist conversations
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-purple-500 rounded-lg">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded-full">
+                  Analysis
+                </span>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1">
+                  {aiStats.mealAnalyses}
+                </p>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">
+                  Meal Analyses
+                </p>
+                <p className="text-xs text-purple-600 dark:text-purple-400">
+                  Nutrition breakdowns
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 border border-orange-200 dark:border-orange-800"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-orange-500 rounded-lg">
+                  <Activity className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded-full">
+                  Recent
+                </span>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-orange-900 dark:text-orange-100 mb-1">
+                  {aiStats.last7Days}
+                </p>
+                <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-1">
+                  Last 7 Days
+                </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400">
+                  Recent AI activity
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       {/* AI Features Grid */}
       <div className="mb-8">

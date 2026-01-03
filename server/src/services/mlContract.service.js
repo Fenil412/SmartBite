@@ -3,6 +3,8 @@ import { Meal } from "../models/meal.model.js";
 import { MealPlan } from "../models/mealPlan.model.js";
 import { Feedback } from "../models/feedback.model.js";
 import { Constraint } from "../models/constraint.model.js";
+import crypto from 'crypto';
+import axios from 'axios';
 
 /**
  * Build ML-ready user context
@@ -173,3 +175,100 @@ export const getMealCatalogStats = async () => {
         generatedAt: new Date().toISOString()
     };
 };
+
+/**
+ * ML Contract Service for secure communication with Flask AI
+ */
+class MLContractService {
+    constructor() {
+        this.flaskUrl = process.env.FLASK_AI_URL || 'http://127.0.0.1:5000';
+        this.internalKey = process.env.NODE_INTERNAL_KEY;
+        
+        if (!this.internalKey) {
+            throw new Error('NODE_INTERNAL_KEY is required for ML contract service');
+        }
+    }
+
+    /**
+     * Generate HMAC signature for request authentication
+     */
+    generateSignature(data, timestamp) {
+        const payload = JSON.stringify(data) + timestamp;
+        return crypto.createHmac('sha256', this.internalKey).update(payload).digest('hex');
+    }
+
+    /**
+     * Make authenticated request to Flask AI service
+     */
+    async makeRequest(endpoint, data) {
+        const timestamp = Date.now().toString();
+        const signature = this.generateSignature(data, timestamp);
+        
+        try {
+            const response = await axios.post(`${this.flaskUrl}${endpoint}`, data, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Timestamp': timestamp,
+                    'X-Signature': signature,
+                    'X-Source': 'node-backend'
+                },
+                timeout: 30000
+            });
+            
+            return response.data;
+        } catch (error) {
+            if (error.response) {
+                throw new Error(`Flask AI Error: ${error.response.data?.message || error.response.statusText}`);
+            } else if (error.request) {
+                throw new Error('Flask AI service is not responding');
+            } else {
+                throw new Error(`Request failed: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Get AI user context
+     */
+    async getAIUserContext(userId) {
+        try {
+            const response = await this.makeRequest('/internal/user-context', {
+                userId: userId
+            });
+            return response;
+        } catch (error) {
+            throw new Error(`Failed to get AI user context: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get analytics from Flask
+     */
+    async getAnalytics(userId) {
+        try {
+            const response = await this.makeRequest('/internal/analytics', {
+                userId: userId
+            });
+            return response;
+        } catch (error) {
+            throw new Error(`Failed to get Flask analytics: ${error.message}`);
+        }
+    }
+
+    /**
+     * Export user data from Flask
+     */
+    async exportUserData(userId) {
+        try {
+            const response = await this.makeRequest('/internal/export-data', {
+                userId: userId
+            });
+            return response;
+        } catch (error) {
+            throw new Error(`Failed to export Flask data: ${error.message}`);
+        }
+    }
+}
+
+// Create singleton instance
+export const mlContractService = new MLContractService();

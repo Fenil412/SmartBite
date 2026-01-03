@@ -7,6 +7,7 @@ from app.api.routes import api
 from app.utils.logger import setup_logger
 import os
 from app.api.internal import internal_api
+from app.api.analytics import analytics_bp
 
 
 def create_app():
@@ -15,6 +16,7 @@ def create_app():
     setup_logger()
     app.register_blueprint(api)
     app.register_blueprint(internal_api)
+    app.register_blueprint(analytics_bp)
     return app
 
 app = create_app()

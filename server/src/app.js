@@ -42,6 +42,7 @@ import feedbackRouter from "./routes/feedback.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import constraintRoutes from "./routes/constraint.routes.js";
 import groceryRoutes from "./routes/grocery.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 
 // src/app.js
 import { startWeeklySummaryCron } from "./services/cron/weeklySummary.cron.js";
@@ -63,6 +64,7 @@ app.use("/api/v1/recommendations", recommendationRouter);
 app.use("/api/v1/feedback", feedbackRouter);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/constraints", constraintRoutes);
+app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1", groceryRoutes);
 
 import mlContractRoutes from "./routes/mlContract.routes.js";
