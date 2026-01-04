@@ -11,3 +11,5 @@ gunicorn
 pydantic
 xgboost
 pulp
+openpyxl
+xlsxwriter

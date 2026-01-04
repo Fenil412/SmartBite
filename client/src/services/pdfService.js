@@ -809,7 +809,7 @@ export const pdfService = {
                   }
                 }
                 
-                console.log('Loading image:', processedUrl)
+                // Loading image
                 img.src = processedUrl
               } catch (error) {
                 canvas.remove()

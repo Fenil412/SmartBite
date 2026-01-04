@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const NotificationSchema = new mongoose.Schema(
     {
@@ -61,5 +62,7 @@ const NotificationSchema = new mongoose.Schema(
 
 NotificationSchema.index({ status: 1, createdAt: 1 });
 NotificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
+
+NotificationSchema.plugin(mongoosePaginate);
 
 export const Notification = mongoose.model("Notification", NotificationSchema);

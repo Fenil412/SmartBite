@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const ConstraintSchema = new mongoose.Schema(
     {
@@ -46,5 +47,7 @@ const ConstraintSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+ConstraintSchema.plugin(mongoosePaginate);
 
 export const Constraint = mongoose.model("Constraint", ConstraintSchema);

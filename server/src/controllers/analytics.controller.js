@@ -38,8 +38,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
       flaskData = flaskAnalytics?.data || flaskAnalytics // Handle both response formats
       totalAiInteractions = flaskData?.totalInteractions || 0
     } catch (error) {
-      console.log('Flask analytics not available:', error.message)
-      // Continue without Flask data
+      // Flask analytics not available, continue without Flask data
     }
 
     // Process results
@@ -178,8 +177,7 @@ const exportUserData = asyncHandler(async (req, res) => {
       const flaskExport = await mlContractService.exportUserData(userId)
       flaskData = flaskExport
     } catch (error) {
-      console.log('Flask export not available:', error.message)
-      // Continue without Flask data
+      // Flask export not available, continue without Flask data
     }
 
     const exportData = {

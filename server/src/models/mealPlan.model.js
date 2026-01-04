@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 /* ===========================
    SUB SCHEMAS
@@ -107,5 +108,7 @@ const MealPlanSchema = new mongoose.Schema(
 );
 
 MealPlanSchema.index({ user: 1, createdAt: -1 });
+
+MealPlanSchema.plugin(mongoosePaginate);
 
 export const MealPlan = mongoose.model("MealPlan", MealPlanSchema);
