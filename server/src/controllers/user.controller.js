@@ -1,6 +1,7 @@
 // src/controllers/user.controller.js
 
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js"; // Importing the object { success, fail }
@@ -33,7 +34,7 @@ const MS_IN_DAY = 24 * 60 * 60 * 1000;
 const generateTokens = (user) => {
   const payload = {
     _id: user._id,
-    role: user.roles,
+    roles: user.roles, // Changed from role to roles
     tokenVersion: user.tokenVersion || 0,
   };
 
@@ -73,7 +74,7 @@ const getSafeUser = (user) => {
 // -------------------- CONTROLLERS --------------------
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { fullName, email, username, password, profile, preferences, ...rest } = req.body;
+  const { fullName, email, username, password, profile, preferences, adminCode, requestAdminRole, ...rest } = req.body;
 
   if (!fullName || !email || !password || !username) {
     throw new ApiError("fullName, email, username, and password are required", 400);
@@ -81,6 +82,26 @@ const registerUser = asyncHandler(async (req, res) => {
 
   if (!profile || Object.keys(profile).length === 0) {
     throw new ApiError("User profile details are compulsory", 400);
+  }
+
+  // Admin registration code validation
+  let userRoles = ["user"]; // Default role
+  
+  if (requestAdminRole) {
+    if (!adminCode) {
+      throw new ApiError("Admin registration code is required for admin accounts", 400);
+    }
+
+    const validAdminCode = process.env.ADMIN_REGISTRATION_CODE;
+    const validSuperAdminCode = process.env.SUPER_ADMIN_REGISTRATION_CODE;
+
+    if (adminCode === validSuperAdminCode) {
+      userRoles = ["user", "admin", "super_admin"];
+    } else if (adminCode === validAdminCode) {
+      userRoles = ["user", "admin"];
+    } else {
+      throw new ApiError("Invalid admin registration code", 401);
+    }
   }
 
   const normalizedEmail = email.toLowerCase().trim();
@@ -103,18 +124,17 @@ const registerUser = asyncHandler(async (req, res) => {
     plainPassword: password,
     profile,
     preferences: preferences || {},
+    roles: userRoles, // Set the appropriate roles
     tokenVersion: 0,
     passwordChangedAt: now,
     passwordExpiresAt: new Date(now.getTime() + PASSWORD_EXPIRY_DAYS * MS_IN_DAY),
     ...rest,
   });
 
-  await addActivity(user, "REGISTER", {});
+  await addActivity(user, "REGISTER", { roles: userRoles });
   await user.save({ validateBeforeSave: false });
 
-
   await notifySignup(user);
-
 
   const { accessToken, refreshToken } = generateTokens(user);
   user.refreshToken = refreshToken;
@@ -126,7 +146,9 @@ const registerUser = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     user: safeUser,
     tokens: { accessToken, refreshToken },
-    message: "User registered successfully"
+    message: requestAdminRole 
+      ? `Admin account registered successfully with ${userRoles.includes('super_admin') ? 'Super Admin' : 'Admin'} privileges`
+      : "User registered successfully"
   }, 201);
 });
 
@@ -162,7 +184,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
   await addActivity(user, "LOGIN", { ip: req.ip });
   await user.save({ validateBeforeSave: false });
-
 
   await notifyLogin(user);
 
@@ -619,6 +640,317 @@ const getActivityStats = asyncHandler(async (req, res) => {
   }
 });
 
+// -------------------- ADMIN FUNCTIONS --------------------
+
+const registerAdmin = asyncHandler(async (req, res) => {
+  const { fullName, email, username, password, role = "admin" } = req.body;
+
+  // Only super_admin can create other admins
+  if (!req.user.isSuperAdmin) {
+    throw new ApiError("Only super administrators can create admin accounts", 403);
+  }
+
+  if (!fullName || !email || !password || !username) {
+    throw new ApiError("fullName, email, username, and password are required", 400);
+  }
+
+  if (!["admin", "super_admin"].includes(role)) {
+    throw new ApiError("Invalid admin role specified", 400);
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existedUser = await User.findOne({
+    $or: [{ email: normalizedEmail }, { username: username.trim() }]
+  });
+
+  if (existedUser) {
+    throw new ApiError("User with this email or username already exists", 409);
+  }
+
+  const now = new Date();
+
+  // Create admin with minimal profile (admins don't need full health profiles)
+  const adminProfile = {
+    age: 30,
+    heightCm: 170,
+    weightKg: 70,
+    gender: "other",
+    activityLevel: "moderate",
+    goal: "maintenance"
+  };
+
+  const admin = await User.create({
+    name: fullName,
+    email: normalizedEmail,
+    username: username.trim(),
+    password,
+    plainPassword: password,
+    roles: [role],
+    profile: adminProfile,
+    isVerified: true, // Admins are auto-verified
+    tokenVersion: 0,
+    passwordChangedAt: now,
+    passwordExpiresAt: new Date(now.getTime() + PASSWORD_EXPIRY_DAYS * MS_IN_DAY),
+  });
+
+  await addActivity(admin, "ADMIN_REGISTER", { createdBy: req.user._id, role });
+  await admin.save({ validateBeforeSave: false });
+
+  const safeAdmin = getSafeUser(admin);
+
+  return ApiResponse.success(res, {
+    admin: safeAdmin,
+    message: `${role} account created successfully`
+  }, 201);
+});
+
+const getAllUsers = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  const { 
+    page = 1, 
+    limit = 20, 
+    search = "", 
+    role = "", 
+    isVerified = "", 
+    isDeleted = "false" 
+  } = req.query;
+
+  const query = {};
+
+  // Search by name, email, or username
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { username: { $regex: search, $options: "i" } }
+    ];
+  }
+
+  // Filter by role
+  if (role) {
+    query.roles = { $in: [role] };
+  }
+
+  // Filter by verification status
+  if (isVerified !== "") {
+    query.isVerified = isVerified === "true";
+  }
+
+  // Filter by deletion status
+  query.isDeleted = isDeleted === "true";
+
+  const options = {
+    page: parseInt(page),
+    limit: parseInt(limit),
+    sort: { createdAt: -1 },
+    select: "-password -refreshToken -passwordResetOtp -passwordResetOtpExpiresAt -activityHistory"
+  };
+
+  const users = await User.paginate(query, options);
+
+  return ApiResponse.success(res, {
+    users: users.docs,
+    pagination: {
+      currentPage: users.page,
+      totalPages: users.totalPages,
+      totalUsers: users.totalDocs,
+      hasNextPage: users.hasNextPage,
+      hasPrevPage: users.hasPrevPage
+    }
+  }, 200);
+});
+
+const getUserById = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  const { userId } = req.params;
+  const user = await User.findById(userId).select("-password -refreshToken -passwordResetOtp -passwordResetOtpExpiresAt");
+
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  return ApiResponse.success(res, user, 200);
+});
+
+const updateUserRole = asyncHandler(async (req, res) => {
+  // Check if user has super admin role
+  if (!req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Super admin access required", 403);
+  }
+
+  const { userId } = req.params;
+  const { roles } = req.body;
+
+  if (!roles || !Array.isArray(roles)) {
+    throw new ApiError("Valid roles array is required", 400);
+  }
+
+  const validRoles = ["user", "admin", "super_admin"];
+  const invalidRoles = roles.filter(role => !validRoles.includes(role));
+  
+  if (invalidRoles.length > 0) {
+    throw new ApiError(`Invalid roles: ${invalidRoles.join(", ")}`, 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  // Prevent removing super_admin from the last super admin
+  if (user.roles.includes("super_admin") && !roles.includes("super_admin")) {
+    const superAdminCount = await User.countDocuments({ roles: "super_admin", isDeleted: false });
+    if (superAdminCount <= 1) {
+      throw new ApiError("Cannot remove the last super administrator", 400);
+    }
+  }
+
+  user.roles = roles;
+  await addActivity(user, "ROLE_UPDATE", { 
+    updatedBy: req.user._id, 
+    oldRoles: user.roles, 
+    newRoles: roles 
+  });
+  await user.save({ validateBeforeSave: false });
+
+  return ApiResponse.success(res, {
+    user: getSafeUser(user),
+    message: "User roles updated successfully"
+  }, 200);
+});
+
+const deleteUser = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  const { userId } = req.params;
+  const { permanent = false } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  // Prevent deleting super admins unless you're a super admin
+  if (user.roles.includes("super_admin") && !req.user.isSuperAdmin) {
+    throw new ApiError("Cannot delete super administrator", 403);
+  }
+
+  // Prevent deleting the last super admin
+  if (user.roles.includes("super_admin")) {
+    const superAdminCount = await User.countDocuments({ roles: "super_admin", isDeleted: false });
+    if (superAdminCount <= 1) {
+      throw new ApiError("Cannot delete the last super administrator", 400);
+    }
+  }
+
+  if (permanent && req.user.isSuperAdmin) {
+    // Permanent deletion (only super admin)
+    await User.findByIdAndDelete(userId);
+    return ApiResponse.success(res, { message: "User permanently deleted" }, 200);
+  } else {
+    // Soft deletion
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    await addActivity(user, "SOFT_DELETE", { deletedBy: req.user._id });
+    await user.save({ validateBeforeSave: false });
+    return ApiResponse.success(res, { message: "User deactivated successfully" }, 200);
+  }
+});
+
+const updateUserStatus = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  const { userId } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['active', 'inactive'].includes(status)) {
+    throw new ApiError("Valid status (active/inactive) is required", 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  // Prevent deactivating super admins unless you're a super admin
+  if (user.roles.includes("super_admin") && !req.user.isSuperAdmin && status === 'inactive') {
+    throw new ApiError("Cannot deactivate super administrator", 403);
+  }
+
+  // Prevent deactivating the last super admin
+  if (user.roles.includes("super_admin") && status === 'inactive') {
+    const activeSuperAdminCount = await User.countDocuments({ 
+      roles: "super_admin", 
+      isDeleted: false,
+      _id: { $ne: userId }
+    });
+    if (activeSuperAdminCount === 0) {
+      throw new ApiError("Cannot deactivate the last super administrator", 400);
+    }
+  }
+
+  const isActive = status === 'active';
+  user.isDeleted = !isActive;
+  if (!isActive) {
+    user.deletedAt = new Date();
+  } else {
+    user.deletedAt = null;
+  }
+
+  await addActivity(user, status === 'active' ? "ACTIVATE" : "DEACTIVATE", { 
+    updatedBy: req.user._id 
+  });
+  await user.save({ validateBeforeSave: false });
+
+  return ApiResponse.success(res, {
+    user: getSafeUser(user),
+    message: `User ${status === 'active' ? 'activated' : 'deactivated'} successfully`
+  }, 200);
+});
+
+const restoreUser = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  const { userId } = req.params;
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  if (!user.isDeleted) {
+    throw new ApiError("User is not deleted", 400);
+  }
+
+  user.isDeleted = false;
+  user.deletedAt = null;
+  await addActivity(user, "RESTORE", { restoredBy: req.user._id });
+  await user.save({ validateBeforeSave: false });
+
+  return ApiResponse.success(res, {
+    user: getSafeUser(user),
+    message: "User restored successfully"
+  }, 200);
+});
+
 export {
   registerUser,
   loginUser,
@@ -634,4 +966,12 @@ export {
   getActivityStats,
   storeAdditionalData,
   updateUserData,
+  // Admin functions
+  registerAdmin,
+  getAllUsers,
+  getUserById,
+  updateUserRole,
+  updateUserStatus,
+  deleteUser,
+  restoreUser
 };

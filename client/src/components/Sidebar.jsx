@@ -23,6 +23,7 @@ import {
   Apple,
   ChevronDown,
   ChevronRight,
+  Shield,
   // AI Icons
   Bot,
   Heart,
@@ -507,6 +508,65 @@ const Sidebar = ({ onClose }) => {
             </NavLink>
           </div>
         )}
+
+        {/* Admin Section - Only show for admin users */}
+        {user?.roles?.includes('admin') || user?.roles?.includes('super_admin') ? (
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            {shouldShowExpanded && (
+              <div className="mb-3">
+                <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Administration
+                </h3>
+              </div>
+            )}
+            
+            <NavLink
+              to="/dashboard/admin"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                  isActive
+                    ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-700 dark:hover:text-red-300'
+                } ${!shouldShowExpanded ? 'justify-center px-2' : ''}`
+              }
+              title={!shouldShowExpanded ? 'Admin Dashboard' : ''}
+            >
+              {({ isActive }) => (
+                <>
+                  <Shield
+                    className={`h-5 w-5 transition-colors ${
+                      isActive
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-gray-400 group-hover:text-red-500 dark:group-hover:text-red-400'
+                    } ${!shouldShowExpanded ? '' : 'mr-3'}`}
+                  />
+                  <AnimatePresence>
+                    {shouldShowExpanded && (
+                      <motion.span
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="truncate"
+                      >
+                        Admin Dashboard
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {isActive && shouldShowExpanded && (
+                    <motion.div
+                      layoutId="activeAdminTab"
+                      className="ml-auto w-2 h-2 bg-red-500 rounded-full"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+          </div>
+        ) : null}
       </nav>
 
       {/* Footer */}

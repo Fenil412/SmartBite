@@ -43,6 +43,8 @@ import NutritionImpactPage from './pages/ai/NutritionImpactPage'
 import AiHistoryPage from './pages/ai/AiHistoryPage'
 import AiDashboard from './pages/ai/AiDashboard'
 import AboutPage from './pages/AboutPage'
+// Admin Pages
+import AdminDashboard from './pages/admin/AdminDashboard'
 import ParticleSystem from './components/ParticleSystem'
 import useThemeStore from './store/themeStore'
 import useCustomCursor from './hooks/useCustomCursor'
@@ -112,6 +114,9 @@ function App() {
               <Route path="meals/my-meals" element={<MyMealsPage />} />
               <Route path="meals/:mealId" element={<MealDetailsPage />} />
               <Route path="meals/:mealId/edit" element={<EditMealPage />} />
+              
+              {/* Admin Routes */}
+              <Route path="admin" element={<AdminDashboard />} />
             </Route>
 
             {/* Catch all route - redirect to home */}

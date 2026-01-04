@@ -83,7 +83,19 @@ const MealSchema = new mongoose.Schema(
             required: true,
         },
         likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-        isActive: { type: Boolean, default: true }
+        isActive: { type: Boolean, default: true },
+        
+        // Admin approval status
+        status: {
+            type: String,
+            enum: ["pending", "approved", "rejected"],
+            default: "approved"
+        },
+        reviewedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
+        reviewedAt: { type: Date }
     },
     { timestamps: true }
 );

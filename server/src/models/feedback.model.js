@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 /* ===========================
    FEEDBACK SCHEMA
@@ -59,5 +60,7 @@ const FeedbackSchema = new mongoose.Schema(
 );
 
 FeedbackSchema.index({ user: 1, createdAt: -1 });
+
+FeedbackSchema.plugin(mongoosePaginate);
 
 export const Feedback = mongoose.model("Feedback", FeedbackSchema);

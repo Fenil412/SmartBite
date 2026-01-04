@@ -14,6 +14,8 @@ const SignupPage = () => {
     phone: '',
     password: '',
     confirmPassword: '',
+    userType: 'user', // New field for user type selection
+    adminCode: '', // Admin registration code
     // Basic profile data required by backend
     age: '',
     heightCm: '',
@@ -74,6 +76,11 @@ const SignupPage = () => {
       } else if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = 'Passwords do not match'
       }
+
+      // Admin code validation
+      if (formData.userType === 'admin' && !formData.adminCode.trim()) {
+        newErrors.adminCode = 'Admin registration code is required'
+      }
     }
 
     // Step 2 validation
@@ -108,7 +115,7 @@ const SignupPage = () => {
     setIsSubmitting(true)
     
     try {
-      const result = await signup({
+      const signupData = {
         fullName: formData.fullName.trim(),
         username: formData.username.trim(),
         email: formData.email,
@@ -126,7 +133,15 @@ const SignupPage = () => {
           allergies: [],
           medicalNotes: ''
         }
-      })
+      }
+
+      // Add admin-specific data if user type is admin
+      if (formData.userType === 'admin') {
+        signupData.adminCode = formData.adminCode.trim()
+        signupData.requestAdminRole = true
+      }
+
+      const result = await signup(signupData)
       
       if (result.success) {
         success('Account created successfully! Please check your email to verify your account.')
@@ -331,6 +346,62 @@ const SignupPage = () => {
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.phone}</p>
                   )}
                 </div>
+
+                {/* User Type Selection */}
+                <div>
+                  <label htmlFor="userType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Account Type
+                  </label>
+                  <select
+                    id="userType"
+                    name="userType"
+                    value={formData.userType}
+                    onChange={handleChange}
+                    className="block w-full px-3 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="user">Regular User</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {formData.userType === 'admin' 
+                      ? 'Admin accounts require a special registration code'
+                      : 'Standard user account for accessing SmartBite features'
+                    }
+                  </p>
+                </div>
+
+                {/* Admin Code Field (only show if admin is selected) */}
+                {formData.userType === 'admin' && (
+                  <div>
+                    <label htmlFor="adminCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Admin Registration Code
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="adminCode"
+                        name="adminCode"
+                        type="password"
+                        value={formData.adminCode}
+                        onChange={handleChange}
+                        className={`block w-full pl-10 pr-3 py-3 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
+                          errors.adminCode
+                            ? 'border-red-300 dark:border-red-600'
+                            : 'border-gray-300 dark:border-gray-600'
+                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                        placeholder="Enter admin registration code"
+                      />
+                    </div>
+                    {errors.adminCode && (
+                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.adminCode}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Contact your system administrator to obtain this code
+                    </p>
+                  </div>
+                )}
 
                 {/* Password Field */}
                 <div>

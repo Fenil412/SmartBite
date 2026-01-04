@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import uniqueValidator from "mongoose-unique-validator";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const PASSWORD_MIN_LENGTH = 8;
 const USERNAME_MIN_LENGTH = 3;
@@ -94,7 +95,18 @@ const UserSchema = new mongoose.Schema(
         },
 
         // --- System & Security ---
-        roles: { type: [String], default: ["user"] },
+        roles: { 
+            type: [String], 
+            default: ["user"],
+            enum: ["user", "admin", "super_admin"],
+            validate: {
+                validator: function(roles) {
+                    const validRoles = ["user", "admin", "super_admin"];
+                    return roles.every(role => validRoles.includes(role));
+                },
+                message: "Invalid role specified"
+            }
+        },
         isVerified: { type: Boolean, default: false },
         locale: { type: String, default: "en-US" },
         timezone: { type: String, default: "UTC" },
@@ -165,6 +177,7 @@ const UserSchema = new mongoose.Schema(
 );
 
 UserSchema.plugin(uniqueValidator, { message: "{PATH} already exists" });
+UserSchema.plugin(mongoosePaginate);
 
 /* ===========================
    VIRTUAL PASSWORD
@@ -244,6 +257,18 @@ UserSchema.methods.toPublic = function () {
         preferences: this.preferences,
         profile: this.profile
     };
+};
+
+UserSchema.methods.isAdmin = function () {
+    return this.roles.includes("admin") || this.roles.includes("super_admin");
+};
+
+UserSchema.methods.isSuperAdmin = function () {
+    return this.roles.includes("super_admin");
+};
+
+UserSchema.methods.hasRole = function (role) {
+    return this.roles.includes(role);
 };
 
 /* ===========================
