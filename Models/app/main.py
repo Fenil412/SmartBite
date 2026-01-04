@@ -76,9 +76,6 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 5000))
-    debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
-    
-    logger.info(f"Starting Flask AI Service on {host}:{port}")
-    app.run(host=host, port=port, debug=debug)
+    port = int(os.environ.get("PORT"))  # Render injects this
+    logger.info(f"Starting Flask AI Service on 0.0.0.0:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
