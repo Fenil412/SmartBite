@@ -56,6 +56,12 @@ retryFailedNotifications();
 // retry every 5 minutes
 setInterval(retryFailedNotifications, 5 * 60 * 1000);
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "SmartBite API is running 🚀"
+  });
+});
 
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/users", userRouter);
