@@ -106,6 +106,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const normalizedEmail = email.toLowerCase().trim();
 
+  // Check for existing user before creating
   const existedUser = await User.findOne({
     $or: [{ email: normalizedEmail }, { username: username.trim() }]
   });
@@ -116,40 +117,60 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const now = new Date();
 
-  const user = await User.create({
-    name: fullName,
-    email: normalizedEmail,
-    username: username.trim(),
-    password,
-    plainPassword: password,
-    profile,
-    preferences: preferences || {},
-    roles: userRoles, // Set the appropriate roles
-    tokenVersion: 0,
-    passwordChangedAt: now,
-    passwordExpiresAt: new Date(now.getTime() + PASSWORD_EXPIRY_DAYS * MS_IN_DAY),
-    ...rest,
-  });
+  try {
+    const user = await User.create({
+      name: fullName,
+      email: normalizedEmail,
+      username: username.trim(),
+      password,
+      plainPassword: password,
+      profile,
+      preferences: preferences || {},
+      roles: userRoles, // Set the appropriate roles
+      tokenVersion: 0,
+      passwordChangedAt: now,
+      passwordExpiresAt: new Date(now.getTime() + PASSWORD_EXPIRY_DAYS * MS_IN_DAY),
+      ...rest,
+    });
 
-  await addActivity(user, "REGISTER", { roles: userRoles });
-  await user.save({ validateBeforeSave: false });
+    await addActivity(user, "REGISTER", { roles: userRoles });
+    await user.save({ validateBeforeSave: false });
 
-  await notifySignup(user);
+    await notifySignup(user);
 
-  const { accessToken, refreshToken } = generateTokens(user);
-  user.refreshToken = refreshToken;
-  await user.save({ validateBeforeSave: false });
+    const { accessToken, refreshToken } = generateTokens(user);
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
 
-  const safeUser = getSafeUser(user);
+    const safeUser = getSafeUser(user);
 
-  // Response (Corrected: using ApiResponse.success)
-  return ApiResponse.success(res, {
-    user: safeUser,
-    tokens: { accessToken, refreshToken },
-    message: requestAdminRole 
-      ? `Admin account registered successfully with ${userRoles.includes('super_admin') ? 'Super Admin' : 'Admin'} privileges`
-      : "User registered successfully"
-  }, 201);
+    // Response (Corrected: using ApiResponse.success)
+    return ApiResponse.success(res, {
+      user: safeUser,
+      tokens: { accessToken, refreshToken },
+      message: requestAdminRole 
+        ? `Admin account registered successfully with ${userRoles.includes('super_admin') ? 'Super Admin' : 'Admin'} privileges`
+        : "User registered successfully"
+    }, 201);
+
+  } catch (error) {
+    // Handle MongoDB duplicate key error (E11000)
+    if (error.code === 11000) {
+      const duplicateError = User.handleDuplicateError(error);
+      if (duplicateError) {
+        throw new ApiError(duplicateError.message, 409);
+      }
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      throw new ApiError(messages.join(', '), 400);
+    }
+    
+    // Re-throw other errors
+    throw error;
+  }
 });
 
 const loginUser = asyncHandler(async (req, res) => {

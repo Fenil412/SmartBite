@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import validator from "validator";
-import uniqueValidator from "mongoose-unique-validator";
 import mongoosePaginate from "mongoose-paginate-v2";
 
 const PASSWORD_MIN_LENGTH = 8;
@@ -53,7 +52,8 @@ const UserSchema = new mongoose.Schema(
         email: {
             type: String,
             required: [true, "Email required"],
-            unique: true, // This automatically creates an index!
+            unique: true,
+            index: true,
             lowercase: true,
             trim: true,
             validate: {
@@ -64,7 +64,8 @@ const UserSchema = new mongoose.Schema(
         username: {
             type: String,
             required: [true, "Username required"],
-            unique: true, // This automatically creates an index!
+            unique: true,
+            index: true,
             trim: true,
             minlength: [USERNAME_MIN_LENGTH, `Min length ${USERNAME_MIN_LENGTH}`],
             maxlength: [USERNAME_MAX_LENGTH, `Max length ${USERNAME_MAX_LENGTH}`],
@@ -148,7 +149,6 @@ const UserSchema = new mongoose.Schema(
             }
         },
 
-
         favoriteMeals: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meal" }],
         planHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Plan" }],
 
@@ -176,7 +176,7 @@ const UserSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-UserSchema.plugin(uniqueValidator, { message: "{PATH} already exists" });
+// MongoDB native pagination plugin
 UserSchema.plugin(mongoosePaginate);
 
 /* ===========================
@@ -272,12 +272,40 @@ UserSchema.methods.hasRole = function (role) {
 };
 
 /* ===========================
+   STATIC METHODS FOR DUPLICATE HANDLING
+=========================== */
+UserSchema.statics.handleDuplicateError = function(error) {
+    if (error.code === 11000) {
+        const field = Object.keys(error.keyPattern)[0];
+        const value = error.keyValue[field];
+        
+        let message = "Duplicate value error";
+        if (field === 'email') {
+            message = "Email already exists";
+        } else if (field === 'username') {
+            message = "Username already exists";
+        }
+        
+        return {
+            success: false,
+            message,
+            field,
+            value
+        };
+    }
+    return null;
+};
+
+/* ===========================
    INDEXES
 =========================== */
-// FIXED: Removed duplicate indexes for email and username.
-// `unique: true` in the schema already handles them.
-
+// Compound indexes for better query performance
+UserSchema.index({ email: 1, isDeleted: 1 });
+UserSchema.index({ username: 1, isDeleted: 1 });
 UserSchema.index({ "profile.goal": 1 });
+UserSchema.index({ roles: 1 });
+UserSchema.index({ isVerified: 1 });
+UserSchema.index({ createdAt: -1 });
 
 /* ===========================
    EXPORT
