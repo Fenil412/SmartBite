@@ -1,64 +1,353 @@
-# Python virtual environments
+# ===== PYTHON AI/ML MODELS GITIGNORE =====
+
+# ===== PYTHON VIRTUAL ENVIRONMENTS =====
 venv/
 .venv/
 ENV/
 env/
+.env/
+virtualenv/
+.virtualenv/
+pipenv/
+.pipenv/
+conda-env/
+.conda/
 
-# Python cache
+# ===== PYTHON CACHE & COMPILED =====
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Jupyter notebooks checkpoints
-.ipynb_checkpoints/
-
-# Environment files
+# ===== ENVIRONMENT & SECRETS =====
 .env
 .env.*
 *.env
-
-# Config / secrets
+!.env.example
+!.env.sample
 config.json
+secrets.json
 *.key
 *.pem
+*.p12
+*.pfx
+credentials.json
+service-account.json
 
-# Logs
+# ===== JUPYTER NOTEBOOKS =====
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.ipynb
+
+# ===== LOGS =====
 *.log
 logs/
 *.out
 *.err
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Build / packaging
-build/
-dist/
-*.egg-info/
-.eggs/
+# ===== TESTING & COVERAGE =====
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.cache
+nosetests.xml
 
-# IDE / editor settings
+# ===== ML/AI SPECIFIC FILES =====
+# Model files (large binary files)
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.model
+*.weights
+*.ckpt
+*.pth
+*.pt
+*.pb
+*.onnx
+*.tflite
+*.mlmodel
+
+# TensorFlow
+*.tfrecord
+*.tfrecords
+checkpoint
+model.ckpt.*
+events.out.tfevents.*
+
+# PyTorch
+*.pth
+*.pt
+
+# Scikit-learn
+*.joblib
+*.pkl
+
+# ===== DATASETS & DATA =====
+# Large datasets (uncomment if needed)
+# data/
+# datasets/
+# *.csv
+# *.xlsx
+# *.xls
+# *.json
+# *.parquet
+# *.feather
+# *.h5
+# *.hdf5
+
+# Processed data
+processed_data/
+preprocessed/
+cleaned_data/
+features/
+embeddings/
+
+# ===== TRAINING OUTPUTS =====
+# Training logs and outputs
+runs/
+logs/
+tensorboard_logs/
+wandb/
+mlruns/
+outputs/
+checkpoints/
+saved_models/
+experiments/
+
+# ===== FLASK/WEB FRAMEWORK SPECIFIC =====
+instance/
+.webassets-cache
+*.pid
+
+# ===== IDE & EDITOR FILES =====
+# VS Code
 .vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# PyCharm
 .idea/
+*.iml
+*.ipr
+*.iws
+
+# Jupyter
+.jupyter/
+jupyter_notebook_config.py
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Sublime Text
 *.sublime-workspace
 *.sublime-project
 
-# OS files
+# Vim
+*.swp
+*.swo
+*~
+
+# ===== OPERATING SYSTEM FILES =====
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+
+# Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
 
-# Datasets / outputs (optional, uncomment if needed)
-# data/
-# *.csv
-# *.xlsx
-# *.h5
-# *.pkl
-# *.npz
-# *.npy
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
-# Gunicorn / Flask specific
-instance/
-*.pid
+# ===== DOCUMENTATION =====
+docs/_build/
+site/
+.readthedocs.yml
 
-# Pytest / coverage
-.pytest_cache/
-.coverage
+# ===== DEPLOYMENT =====
+.dockerignore
+docker-compose.override.yml
+Dockerfile.prod
+
+# ===== PACKAGE MANAGERS =====
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# conda
+.conda/
+conda-meta/
+
+# poetry
+poetry.lock
+.venv
+
+# pipenv
+Pipfile.lock
+
+# ===== CLOUD & DEPLOYMENT =====
+.aws/
+.gcp/
+.azure/
+.heroku/
+
+# ===== MONITORING & ANALYTICS =====
+.sentry-native
+.sentry-cli
+
+# ===== TEMPORARY FILES =====
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# ===== DATABASE FILES =====
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ===== MISC PYTHON =====
+# Unit test / coverage reports
 htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff (if using Django)
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff
+instance/
+.webassets-cache
+
+# Scrapy stuff
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ===== CUSTOM ML ARTIFACTS =====
+# Experiment tracking
+experiments/
+mlflow_runs/
+wandb_runs/
+
+# Model artifacts
+artifacts/
+models/trained/
+models/checkpoints/
+
+# Feature stores
+feature_store/
+features.parquet
+
+# Data versioning (DVC)
+.dvc/
+.dvcignore

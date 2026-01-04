@@ -36,7 +36,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import useThemeStore from '../store/themeStore'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const navigation = [
   { name: 'Home', href: '/dashboard/home', icon: Home },
@@ -113,6 +113,22 @@ const Sidebar = ({ onClose }) => {
   const [isCollapsed] = useState(true) // Start collapsed
   const [isHovering, setIsHovering] = useState(false)
   const [expandedSection, setExpandedSection] = useState(null)
+  const [activeTooltip, setActiveTooltip] = useState(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
+
+  // Enhanced device detection
+  useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth
+      setIsMobile(width <= 640) // Mobile: show names instead of icons
+      setIsTablet(width > 640 && width <= 1024) // Tablet: show tooltips
+    }
+    
+    checkDevice()
+    window.addEventListener('resize', checkDevice)
+    return () => window.removeEventListener('resize', checkDevice)
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -124,29 +140,71 @@ const Sidebar = ({ onClose }) => {
     }
   }
 
-  // Show sidebar on hover when collapsed
-  const shouldShowExpanded = !isCollapsed || isHovering
+  // Show sidebar on hover when collapsed (desktop only)
+  const shouldShowExpanded = !isCollapsed || isHovering || isMobile
 
   const handleMouseEnter = () => {
-    if (isCollapsed) {
+    if (isCollapsed && !isMobile) {
       setIsHovering(true)
     }
   }
 
   const handleMouseLeave = () => {
-    if (isCollapsed) {
+    if (isCollapsed && !isMobile) {
       setIsHovering(false)
+      setActiveTooltip(null)
     }
   }
 
+  // Handle tooltip for tablet only
+  const handleTooltipToggle = (itemName) => {
+    if (isTablet && !shouldShowExpanded) {
+      setActiveTooltip(activeTooltip === itemName ? null : itemName)
+      // Auto-hide tooltip after 2 seconds
+      setTimeout(() => {
+        setActiveTooltip(null)
+      }, 2000)
+    }
+  }
+
+  // Enhanced tooltip component (only for tablet)
+  const TooltipWrapper = ({ children, tooltip, itemName, className = "" }) => {
+    const isActive = activeTooltip === itemName
+    
+    // Only show tooltips on tablet when sidebar is collapsed
+    if (!isTablet || shouldShowExpanded) {
+      return <div className={className}>{children}</div>
+    }
+    
+    return (
+      <div 
+        className={`sidebar-tooltip ${className} ${isActive ? 'tooltip-active' : ''}`}
+        data-tooltip={tooltip}
+        onClick={() => handleTooltipToggle(itemName)}
+        onTouchStart={() => handleTooltipToggle(itemName)}
+      >
+        {children}
+      </div>
+    )
+  }
+
   return (
-    <div 
-      className={`flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full transition-all duration-300 ease-in-out ${
-        shouldShowExpanded ? 'w-70' : 'w-20'
-      }`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <>
+      {/* Mobile/Tablet Overlay */}
+      {isMobile && shouldShowExpanded && (
+        <div 
+          className="sidebar-overlay sidebar-overlay-open"
+          onClick={onClose}
+        />
+      )}
+      
+      <div 
+        className={`sidebar-mobile-enhanced flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full transition-all duration-300 ease-in-out ${
+          shouldShowExpanded ? 'w-70' : isMobile ? 'w-full' : 'w-20'
+        } ${isMobile && shouldShowExpanded ? 'sidebar-open' : ''}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
       {/* Header */}
       <div className="flex items-center justify-center p-6 border-b border-gray-200 dark:border-gray-700">
         <AnimatePresence>
@@ -185,23 +243,28 @@ const Sidebar = ({ onClose }) => {
               </NavLink>
             </motion.div>
           ) : (
-            <NavLink 
-              to="/dashboard/home"
+            <TooltipWrapper 
+              tooltip="SmartBite - Go to Home" 
+              itemName="home-logo"
               className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center hover:scale-105 transition-transform"
-              title="SmartBite - Go to Home"
             >
-              <img 
-                src="/logo.svg" 
-                alt="SmartBite Logo" 
-                className="w-8 h-8 object-contain"
-                onError={(e) => {
-                  // Fallback to text if logo fails to load
-                  e.target.style.display = 'none';
-                  e.target.nextElementSibling.style.display = 'inline';
-                }}
-              />
-              <span className="text-white font-bold text-xl" style={{display: 'none'}}>S</span>
-            </NavLink>
+              <NavLink 
+                to="/dashboard/home"
+                className="w-full h-full flex items-center justify-center"
+              >
+                <img 
+                  src="/logo.svg" 
+                  alt="SmartBite Logo" 
+                  className="w-8 h-8 object-contain"
+                  onError={(e) => {
+                    // Fallback to text if logo fails to load
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'inline';
+                  }}
+                />
+                <span className="text-white font-bold text-xl" style={{display: 'none'}}>S</span>
+              </NavLink>
+            </TooltipWrapper>
           )}
         </AnimatePresence>
 
@@ -254,18 +317,21 @@ const Sidebar = ({ onClose }) => {
       {/* Collapsed User Avatar */}
       {user && !shouldShowExpanded && (
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-center">
-          <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full flex items-center justify-center hover:scale-105 transition-transform">
+          <TooltipWrapper 
+            tooltip={`${user.fullName || user.name || 'User'} - ${user.email}`} 
+            itemName="user-profile"
+            className="w-10 h-10 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+          >
             {user.avatar?.url ? (
               <img
                 src={user.avatar.url}
                 alt="Profile"
                 className="w-10 h-10 rounded-full object-cover"
-                title={user.fullName || user.name || 'User Profile'}
               />
             ) : (
-              <User className="h-5 w-5 text-white" title="User Profile" />
+              <User className="h-5 w-5 text-white" />
             )}
-          </div>
+          </TooltipWrapper>
         </div>
       )}
 
@@ -273,33 +339,101 @@ const Sidebar = ({ onClose }) => {
       <nav className="flex-1 px-2 py-6 space-y-1 overflow-y-auto">
         {/* Main Navigation */}
         {navigation.map((item, index) => (
-          <NavLink
-            key={item.name}
-            to={item.href}
-            end={item.end}
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative ${
-                isActive
-                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
-              } ${!shouldShowExpanded ? 'justify-center px-2' : ''}`
-            }
-            title={!shouldShowExpanded ? item.name : ''}
-          >
-            {({ isActive }) => (
-              <>
-                <div className="relative">
+          // Mobile: Always show names, Desktop/Tablet: Show based on expansion
+          isMobile ? (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              end={item.end}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center px-4 py-4 text-base font-medium rounded-xl transition-all duration-200 group relative ${
+                  isActive
+                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
                   <item.icon
-                    className={`h-5 w-5 transition-colors ${
+                    className={`h-6 w-6 mr-4 transition-colors ${
                       isActive
                         ? 'text-primary-600 dark:text-primary-400'
                         : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
-                    } ${!shouldShowExpanded ? '' : 'mr-3'}`}
+                    }`}
                   />
-                </div>
-                <AnimatePresence>
-                  {shouldShowExpanded && (
+                  <span className="truncate text-base font-medium">
+                    {item.name}
+                  </span>
+                  {isActive && (
+                    <div className="ml-auto w-2 h-2 bg-primary-500 rounded-full" />
+                  )}
+                </>
+              )}
+            </NavLink>
+          ) : !shouldShowExpanded ? (
+            <TooltipWrapper 
+              key={item.name}
+              tooltip={item.name} 
+              itemName={`nav-${item.name.toLowerCase()}`}
+            >
+              <NavLink
+                to={item.href}
+                end={item.end}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative ${
+                    isActive
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="relative">
+                      <item.icon
+                        className={`h-5 w-5 transition-colors ${
+                          isActive
+                            ? 'text-primary-600 dark:text-primary-400'
+                            : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                        }`}
+                      />
+                    </div>
+                    {isActive && (
+                      <div className="absolute right-1 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-primary-500 rounded-full" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            </TooltipWrapper>
+          ) : (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              end={item.end}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative ${
+                  isActive
+                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="relative">
+                    <item.icon
+                      className={`h-5 w-5 mr-3 transition-colors ${
+                        isActive
+                          ? 'text-primary-600 dark:text-primary-400'
+                          : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                      }`}
+                    />
+                  </div>
+                  <AnimatePresence>
                     <motion.span
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -309,22 +443,19 @@ const Sidebar = ({ onClose }) => {
                     >
                       {item.name}
                     </motion.span>
+                  </AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="ml-auto w-2 h-2 bg-primary-500 rounded-full"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
                   )}
-                </AnimatePresence>
-                {isActive && shouldShowExpanded && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="ml-auto w-2 h-2 bg-primary-500 rounded-full"
-                    initial={false}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                )}
-                {isActive && !shouldShowExpanded && (
-                  <div className="absolute right-1 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-primary-500 rounded-full" />
-                )}
-              </>
-            )}
-          </NavLink>
+                </>
+              )}
+            </NavLink>
+          )
         ))}
 
         {/* Secondary Navigation - More Section */}
@@ -412,13 +543,15 @@ const Sidebar = ({ onClose }) => {
         {/* Collapsed More Section - Show as single icon */}
         {!shouldShowExpanded && (
           <div className="pt-2">
-            <button
-              onClick={() => setExpandedSection('More')}
+            <TooltipWrapper 
+              tooltip="More Options" 
+              itemName="more-options"
               className="w-full flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
-              title="More Options"
             >
-              <History className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
-            </button>
+              <button onClick={() => setExpandedSection('More')}>
+                <History className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+              </button>
+            </TooltipWrapper>
           </div>
         )}
 
@@ -492,20 +625,24 @@ const Sidebar = ({ onClose }) => {
         {/* Collapsed AI Quick Access */}
         {!shouldShowExpanded && (
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <NavLink
-              to="/dashboard/ai/chat"
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-700 dark:hover:text-purple-300'
-                }`
-              }
-              title="AI Chat - Quick Access"
+            <TooltipWrapper 
+              tooltip="AI Chat - Quick Access" 
+              itemName="ai-chat-quick"
             >
-              <Brain className="h-5 w-5" />
-            </NavLink>
+              <NavLink
+                to="/dashboard/ai/chat"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                    isActive
+                      ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-700 dark:hover:text-purple-300'
+                  }`
+                }
+              >
+                <Brain className="h-5 w-5" />
+              </NavLink>
+            </TooltipWrapper>
           </div>
         )}
 
@@ -520,29 +657,57 @@ const Sidebar = ({ onClose }) => {
               </div>
             )}
             
-            <NavLink
-              to="/dashboard/admin"
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-700 dark:hover:text-red-300'
-                } ${!shouldShowExpanded ? 'justify-center px-2' : ''}`
-              }
-              title={!shouldShowExpanded ? 'Admin Dashboard' : ''}
-            >
-              {({ isActive }) => (
-                <>
-                  <Shield
-                    className={`h-5 w-5 transition-colors ${
+            {!shouldShowExpanded ? (
+              <TooltipWrapper 
+                tooltip="Admin Dashboard" 
+                itemName="admin-dashboard"
+              >
+                <NavLink
+                  to="/dashboard/admin"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center justify-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
                       isActive
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-gray-400 group-hover:text-red-500 dark:group-hover:text-red-400'
-                    } ${!shouldShowExpanded ? '' : 'mr-3'}`}
-                  />
-                  <AnimatePresence>
-                    {shouldShowExpanded && (
+                        ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-700 dark:hover:text-red-300'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Shield
+                        className={`h-5 w-5 transition-colors ${
+                          isActive
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-gray-400 group-hover:text-red-500 dark:group-hover:text-red-400'
+                        }`}
+                      />
+                    </>
+                  )}
+                </NavLink>
+              </TooltipWrapper>
+            ) : (
+              <NavLink
+                to="/dashboard/admin"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                    isActive
+                      ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-700 dark:hover:text-red-300'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Shield
+                      className={`h-5 w-5 mr-3 transition-colors ${
+                        isActive
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-gray-400 group-hover:text-red-500 dark:group-hover:text-red-400'
+                      }`}
+                    />
+                    <AnimatePresence>
                       <motion.span
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -552,19 +717,19 @@ const Sidebar = ({ onClose }) => {
                       >
                         Admin Dashboard
                       </motion.span>
+                    </AnimatePresence>
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeAdminTab"
+                        className="ml-auto w-2 h-2 bg-red-500 rounded-full"
+                        initial={false}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      />
                     )}
-                  </AnimatePresence>
-                  {isActive && shouldShowExpanded && (
-                    <motion.div
-                      layoutId="activeAdminTab"
-                      className="ml-auto w-2 h-2 bg-red-500 rounded-full"
-                      initial={false}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
-                  )}
-                </>
-              )}
-            </NavLink>
+                  </>
+                )}
+              </NavLink>
+            )}
           </div>
         ) : null}
       </nav>
@@ -587,16 +752,23 @@ const Sidebar = ({ onClose }) => {
 
         {/* Logout Button */}
         {user && (
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center space-x-3 px-3 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors ${
-              !shouldShowExpanded ? 'justify-center px-2' : ''
-            }`}
-            title={!shouldShowExpanded ? 'Sign Out' : ''}
-          >
-            <LogOut className="h-5 w-5" />
-            <AnimatePresence>
-              {shouldShowExpanded && (
+          !shouldShowExpanded ? (
+            <TooltipWrapper 
+              tooltip="Sign Out" 
+              itemName="sign-out"
+              className="w-full flex items-center justify-center px-2 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+            >
+              <button onClick={handleLogout}>
+                <LogOut className="h-5 w-5" />
+              </button>
+            </TooltipWrapper>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center space-x-3 px-3 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <AnimatePresence>
                 <motion.span
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -605,9 +777,9 @@ const Sidebar = ({ onClose }) => {
                 >
                   Sign Out
                 </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
+              </AnimatePresence>
+            </button>
+          )
         )}
 
         {/* Copyright */}
@@ -627,6 +799,7 @@ const Sidebar = ({ onClose }) => {
         )}
       </div>
     </div>
+    </>
   )
 }
 

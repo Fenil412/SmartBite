@@ -1,5 +1,31 @@
-# Logs
-logs
+# ===== REACT/VITE CLIENT GITIGNORE =====
+
+# ===== DEPENDENCIES =====
+node_modules/
+.pnp
+.pnp.js
+
+# ===== BUILD OUTPUTS =====
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.nuxt/
+
+# ===== ENVIRONMENT & SECRETS =====
+.env
+.env.*
+*.env
+!.env.example
+!.env.sample
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ===== LOGS =====
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,18 +33,166 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
+# ===== CACHE & TEMPORARY FILES =====
+.cache/
+.parcel-cache/
+.npm
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# ===== TESTING & COVERAGE =====
+coverage/
+*.lcov
+.nyc_output
+/coverage
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# ===== VITE SPECIFIC =====
+# Vite build outputs
 dist-ssr
 *.local
 
-# Editor directories and files
-.vscode/*
+# ===== REACT SPECIFIC =====
+# React build
+/build
+/public/hot
+/public/storage
+/storage/*.key
+
+# ===== PACKAGE MANAGERS =====
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+yarn-error.log
+
+# npm
+npm-debug.log*
+.npm
+
+# pnpm
+pnpm-debug.log*
+.pnpm-store/
+
+# ===== IDE & EDITOR FILES =====
+# VS Code
+.vscode/
 !.vscode/extensions.json
-.idea
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+
+# ===== OPERATING SYSTEM FILES =====
+# macOS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ===== STORYBOOK =====
+storybook-static/
+
+# ===== TYPESCRIPT =====
+*.tsbuildinfo
+
+# ===== TAILWIND CSS =====
+# Tailwind build files (if using JIT)
+.tailwindcss-cache/
+
+# ===== PWA =====
+# Service worker
+sw.js
+workbox-*.js
+
+# ===== DEPLOYMENT =====
+.vercel
+.netlify
+.firebase/
+
+# ===== MISC =====
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# ===== CUSTOM ASSETS =====
+# Large media files (uncomment if needed)
+# *.mp4
+# *.avi
+# *.mov
+# *.wmv
+# *.flv
+# *.webm
+
+# ===== TEMPORARY FILES =====
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.backup
+
+# ===== SOURCEMAPS (uncomment to ignore) =====
+# *.map
