@@ -6,7 +6,6 @@ Provides direct admin access to all AI collections
 from flask import Blueprint, request, jsonify, send_file, make_response
 from datetime import datetime, timedelta
 import json
-import pandas as pd
 import io
 import hmac
 import hashlib
@@ -15,6 +14,14 @@ import os
 from functools import wraps
 from bson import ObjectId
 from ..db.mongo import db
+
+# ✅ GRACEFUL PANDAS IMPORT (prevents OOM on Render)
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    print("Warning: pandas not available. Excel/CSV export functionality disabled.")
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -773,6 +780,12 @@ def export_data():
             export_data['user_context'] = enrich_with_user_info(serialized_context)
         
         if export_format == 'excel':
+            if not PANDAS_AVAILABLE:
+                return jsonify({
+                    'success': False,
+                    'error': 'Excel export not available. pandas library not installed. Use JSON format instead.'
+                }), 400
+            
             # Create Excel file
             output = io.BytesIO()
             
@@ -829,6 +842,12 @@ def export_data():
             )
         
         elif export_format == 'csv':
+            if not PANDAS_AVAILABLE:
+                return jsonify({
+                    'success': False,
+                    'error': 'CSV export not available. pandas library not installed. Use JSON format instead.'
+                }), 400
+            
             # Create CSV content
             csv_data = []
             
