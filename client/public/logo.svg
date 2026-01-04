@@ -1,0 +1,25 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cup body -->
+  <path d="M50 80 Q50 70 60 70 L140 70 Q150 70 150 80 L145 150 Q145 160 135 160 L65 160 Q55 160 55 150 Z" 
+        fill="#FF8C42" stroke="#FF6B1A" stroke-width="2"/>
+  
+  <!-- Cup handle -->
+  <path d="M150 90 Q170 90 170 110 Q170 130 150 130" 
+        fill="none" stroke="#FF6B1A" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Saucer -->
+  <ellipse cx="100" cy="165" rx="45" ry="8" fill="#8BC34A" opacity="0.8"/>
+  
+  <!-- Coffee surface -->
+  <ellipse cx="100" cy="75" rx="40" ry="8" fill="#2C1810"/>
+  
+  <!-- Steam/leaves -->
+  <path d="M85 50 Q80 40 85 30 Q90 35 85 45" fill="#8BC34A"/>
+  <path d="M100 45 Q95 35 100 25 Q105 30 100 40" fill="#8BC34A"/>
+  <path d="M115 50 Q110 40 115 30 Q120 35 115 45" fill="#8BC34A"/>
+  
+  <!-- Leaf details -->
+  <path d="M85 40 Q87 38 89 40" stroke="#6A9B3A" stroke-width="1" fill="none"/>
+  <path d="M100 35 Q102 33 104 35" stroke="#6A9B3A" stroke-width="1" fill="none"/>
+  <path d="M115 40 Q117 38 119 40" stroke="#6A9B3A" stroke-width="1" fill="none"/>
+</svg>

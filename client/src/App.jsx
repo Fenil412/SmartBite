@@ -1,214 +1,132 @@
-import React from "react"; // No more useState for activeSidebarItem or mobile menu
-import { Routes, Route, useLocation } from "react-router-dom"; // useNavigate will now be managed by Header internally
-import {
-  ChefHat,
-  Sparkles,
-  Home,
-  PersonStanding,
-  ShoppingCart,
-  Book,
-  Timer,
-  Brain,
-  Lightbulb,
-  Settings as SettingsIcon,
-  Key,
-  LogIn,
-  UserPlus,
-} from "lucide-react"; // Import all icons needed for Header navigation
-
-// Layout
-import Layout from "./Layout.jsx";
-
-// Pages
-import HomePage from "./pages/HomePage";
-import SignInPage from "./pages/SignInPage";
-import SignUpPage from "./pages/SignUpPage";
-import UserProfile from "./components/UserProfile";
-import ShoppingListPage from "./pages/ShoppingListPage";
-import PreferencesPage from "./pages/PreferencesPage";
-import NutritionTrackerPage from "./pages/NutritionTrackerPage";
-import Dashboard from "./pages/Dashboard";
-import VerifyOtpPage from "./pages/VerifyOtpPage";
-import NotFoundPage from "./pages/NotFoundPage";
-import Settings from "./pages/Settings/Settings";
-import Chatbot from "./Chatbot.jsx";
-
-// Prediction Sub-Pages
-import MealPlanningForm from "./components/MealPlanningForm.jsx";
-import RuleFilteringForm from "./components/RuleFilteringForm.jsx";
-import NutritionGoalForm from "./components/NutritionGoalForm.jsx";
-import VarietyClusteringForm from "./components/VarietyClusteringForm.jsx";
-import ContentFiltering from "./components/ContentFilteringForm.jsx";
-
-// Auth & Admin Protection
-import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
-import AdminPage from "./pages/AdminPage";
-
-// Context Providers
-import { AdminProvider } from "./contexts/AdminContext";
-import { UserPreferencesProvider } from "./contexts/UserPreferencesContext";
-
-// Removed: Sidebar, MobileMenu imports
-// Removed: useMobileMenu hook import
+import { useEffect } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ToastProvider from './contexts/ToastContext'
+import { NotificationProvider } from './contexts/NotificationContext'
+import Layout from './components/Layout'
+import ProtectedRoute from './components/ProtectedRoute'
+import HomePage from './pages/HomePage'
+import LoginPage from './pages/auth/LoginPage'
+import SignupPage from './pages/auth/SignupPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import DashboardPage from './pages/DashboardPage'
+import DashboardHomePage from './pages/DashboardHomePage'
+import ApiTestPage from './pages/ApiTestPage'
+import SettingsPage from './pages/SettingsPage'
+import ProfilePage from './pages/ProfilePage'
+import ActivityPage from './pages/ActivityPage'
+import ConstraintsPage from './pages/ConstraintsPage'
+import FeedbackPage from './pages/FeedbackPage'
+import NotificationsPage from './pages/NotificationsPage'
+import RecommendationsPage from './pages/RecommendationsPage'
+import RecommendationHistoryPage from './pages/RecommendationHistoryPage'
+import GroceryPage from './pages/GroceryPage'
+import GroceryDashboard from './pages/GroceryDashboard'
+// Meal Pages
+import MealsListPage from './pages/meals/MealsListPage'
+import MealDetailsPage from './pages/meals/MealDetailsPage'
+import CreateMealPage from './pages/meals/CreateMealPage'
+import EditMealPage from './pages/meals/EditMealPage'
+import MyMealsPage from './pages/meals/MyMealsPage'
+// Meal Plan Pages
+import MealPlannerDashboard from './pages/mealPlan/MealPlannerDashboard'
+import MealPlanDetails from './pages/mealPlan/MealPlanDetails'
+import CreateMealPlan from './pages/mealPlan/CreateMealPlan'
+import EditMealPlan from './pages/mealPlan/EditMealPlan'
+import MealAnalysisPage from './pages/ai/MealAnalysisPage'
+import WeeklyPlanPage from './pages/ai/WeeklyPlanPage'
+import HealthRiskPage from './pages/ai/HealthRiskPage'
+import AiChatPage from './pages/ai/AiChatPage'
+import WeeklySummaryPage from './pages/ai/WeeklySummaryPage'
+import NutritionImpactPage from './pages/ai/NutritionImpactPage'
+import AiHistoryPage from './pages/ai/AiHistoryPage'
+import AiDashboard from './pages/ai/AiDashboard'
+import AboutPage from './pages/AboutPage'
+// Admin Pages
+import AdminDashboard from './pages/admin/AdminDashboard'
+import ParticleSystem from './components/ParticleSystem'
+import useThemeStore from './store/themeStore'
+import useCustomCursor from './hooks/useCustomCursor'
 
 function App() {
-  const location = useLocation();
+  const { initializeTheme, isDark } = useThemeStore()
+  
+  useCustomCursor()
 
-  // Navigation items structure for the Header
-  const navItems = [
-    { name: "Home", icon: Home, route: "/" },
-    { name: "User Profile", icon: PersonStanding, route: "/profile/me" },
-    { name: "Preferences", icon: Sparkles, route: "/preference" },
-    { name: "Shopping List", icon: ShoppingCart, route: "/shopping-list" },
-    { name: "Nutrition Tracker", icon: Timer, route: "/nutrition-tracker" },
-    { name: "AI Summary", icon: Brain, route: "/ai-summary" },
-    {
-      name: "Prediction",
-      icon: Lightbulb,
-      children: [
-        {
-          name: "Meal Planning",
-          icon: ChefHat,
-          route: "/prediction/meal-planning",
-        },
-        {
-          name: "Rule Filtering",
-          icon: Brain,
-          route: "/prediction/rule-filtering",
-        },
-        {
-          name: "Nutrition Goals",
-          icon: Sparkles,
-          route: "/prediction/nutrition-goals",
-        },
-        {
-          name: "Variety Clustering",
-          icon: Sparkles,
-          route: "/prediction/variety-clustering",
-        },
-        {
-          name: "Content Filtering",
-          icon: Sparkles,
-          route: "/prediction/content-filtering",
-        },
-      ],
-    },
-    { name: "Settings", icon: SettingsIcon, route: "/settings" },
-    { name: "Admin Page", icon: Key, route: "/admin", adminOnly: true },
-  ];
+  useEffect(() => {
+    initializeTheme()
+  }, [initializeTheme])
 
   return (
-    <UserPreferencesProvider>
-      <div className="relative min-h-screen">
-        <Routes location={location}>
-          <Route path="/" element={<Layout navItems={navItems} />}>
-            {" "}
-            {/* Pass navItems to Layout */}
+    <ToastProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 relative">
+          <ParticleSystem particleCount={30} theme={isDark ? 'dark' : 'light'} />
+          <Routes>
             {/* Public Routes */}
-            <Route index element={<HomePage />} />
-            <Route path="/profile/:userId" element={<UserProfile />} />
-            <Route path="/signin" element={<SignInPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/verify-otp" element={<VerifyOtpPage />} />
-            {/* Protected Routes */}
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            {/* <Route
-              path="/chatai"
-              element={
-                  <Chatbot />
-              }
-            /> */}
-            <Route
-              path="/preference"
-              element={
-                <ProtectedRoute>
-                  <PreferencesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/ai-summary" element={<Chatbot />} />
-            {/* Direct Navigation Pages */}
-            <Route path="/shopping-list" element={<ShoppingListPage />} />
-            <Route
-              path="/nutrition-tracker"
-              element={<NutritionTrackerPage />}
-            />
-            {/* Prediction Sub-pages (Protected) */}
-            <Route
-              path="/prediction/meal-planning"
-              element={
-                <ProtectedRoute>
-                  <MealPlanningForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/prediction/rule-filtering"
-              element={
-                <ProtectedRoute>
-                  <RuleFilteringForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/prediction/nutrition-goals"
-              element={
-                <ProtectedRoute>
-                  <NutritionGoalForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/prediction/variety-clustering"
-              element={
-                <ProtectedRoute>
-                  <VarietyClusteringForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/prediction/content-filtering"
-              element={
-                <ProtectedRoute>
-                  <ContentFiltering />
-                </ProtectedRoute>
-              }
-            />
-            {/* Admin Route */}
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <AdminProvider>
-                    <AdminPage />
-                  </AdminProvider>
-                </AdminRoute>
-              }
-            />
-          </Route>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            
+            {/* Protected Routes with Layout */}
+            <Route path="/dashboard/*" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/dashboard/analytics" replace />} />
+              <Route path="analytics" element={<DashboardPage />} />
+              <Route path="home" element={<DashboardHomePage />} />
+              <Route path="meal-planner" element={<MealPlannerDashboard />} />
+              <Route path="meal-planner/create" element={<CreateMealPlan />} />
+              <Route path="meal-planner/:planId" element={<MealPlanDetails />} />
+              <Route path="meal-planner/:planId/edit" element={<EditMealPlan />} />
+              <Route path="grocery" element={<GroceryDashboard />} />
+              <Route path="grocery/:mealPlanId" element={<GroceryPage />} />
+              <Route path="recommendations" element={<RecommendationsPage />} />
+              <Route path="recommendations/history" element={<RecommendationHistoryPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="ai-recommendations" element={<div className="p-8">AI Recommendations Coming Soon</div>} />
+              {/* AI Experience Routes */}
+              <Route path="ai" element={<AiDashboard />} />
+              <Route path="ai/meal-analysis" element={<MealAnalysisPage />} />
+              <Route path="ai/weekly-plan" element={<WeeklyPlanPage />} />
+              <Route path="ai/health-risk" element={<HealthRiskPage />} />
+              <Route path="ai/chat" element={<AiChatPage />} />
+              <Route path="ai/weekly-summary" element={<WeeklySummaryPage />} />
+              <Route path="ai/nutrition-impact" element={<NutritionImpactPage />} />
+              <Route path="ai/history" element={<AiHistoryPage />} />
+              <Route path="goals" element={<div className="p-8">Goals Coming Soon</div>} />
+              <Route path="history" element={<ActivityPage />} />
+              <Route path="about" element={<AboutPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="constraints" element={<ConstraintsPage />} />
+              <Route path="feedback" element={<FeedbackPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="api-test" element={<ApiTestPage />} />
+              {/* Meal Routes */}
+              <Route path="meals" element={<MealsListPage />} />
+              <Route path="meals/create" element={<CreateMealPage />} />
+              <Route path="meals/my-meals" element={<MyMealsPage />} />
+              <Route path="meals/:mealId" element={<MealDetailsPage />} />
+              <Route path="meals/:mealId/edit" element={<EditMealPage />} />
+              
+              {/* Admin Routes */}
+              <Route path="admin" element={<AdminDashboard />} />
+            </Route>
 
-          {/* 404 */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </div>
-    </UserPreferencesProvider>
-  );
+            {/* Catch all route - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </NotificationProvider>
+    </AuthProvider>
+  </ToastProvider>
+  )
 }
 
-export default App;
+export default App

@@ -1,525 +1,223 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "../components/ui/use-toast";
-import axios from "axios"; // Import axios directly
+import React, { createContext, useContext, useReducer, useEffect } from 'react'
+import { userService } from '../services/userService'
+import { setTokens, clearTokens } from '../services/api'
 
-// // // Base URL will come from environment variable in local or Vercel
-// axios.defaults.baseURL =
-//   import.meta.env.VITE_API_URL || "https://smartbite-server-ay4k.onrender.com";
-// axios.defaults.withCredentials = true; // Important for cookies
-// axios.defaults.timeout = 10000;
+// Auth reducer
+const authReducer = (state, action) => {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload }
+    case 'LOGIN_SUCCESS':
+      return {
+        ...state,
+        user: action.payload.user,
+        isAuthenticated: true,
+        loading: false,
+        error: null
+      }
+    case 'LOGOUT':
+      return {
+        ...state,
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+        error: null
+      }
+    case 'SET_ERROR':
+      return {
+        ...state,
+        error: action.payload,
+        loading: false
+      }
+    case 'CLEAR_ERROR':
+      return {
+        ...state,
+        error: null
+      }
+    case 'UPDATE_USER':
+      return {
+        ...state,
+        user: { ...state.user, ...action.payload }
+      }
+    default:
+      return state
+  }
+}
 
-// Create the Axios instance at the top
-const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    "https://smartbite-server-ay4k.onrender.com",
-  withCredentials: true, // Important for cookies
-  timeout: 30000, // Increased timeout
-});
+// Initial state
+const initialState = {
+  user: null,
+  isAuthenticated: false,
+  loading: true,
+  error: null
+}
 
-const AuthContext = createContext();
+// Create context
+const AuthContext = createContext()
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-  const [requiresOtp, setRequiresOtp] = useState(false);
-  const [emailForOtp, setEmailForOtp] = useState("");
+// Auth provider component
+export const AuthProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(authReducer, initialState)
 
-  const navigate = useNavigate();
-
-  // Check authentication status on app load
+  // Initialize auth state on app load
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
+    initializeAuth()
+  }, [])
 
-  const register = async (formData) => {
+  const initializeAuth = async () => {
     try {
-      setLoading(true);
-
-      // Create FormData for file uploads
-      const uploadData = new FormData();
-      uploadData.append("fullName", formData.fullName);
-      uploadData.append("email", formData.email);
-      uploadData.append("username", formData.username);
-      uploadData.append("password", formData.password);
-      uploadData.append("bio", formData.bio || "");
-      uploadData.append("role", formData.role || "user");
-      // Add health details if present
-      if (formData.dateOfBirth) {
-        uploadData.append("healthProfile.dateOfBirth", formData.dateOfBirth);
+      dispatch({ type: 'SET_LOADING', payload: true })
+      
+      // Try to get user data (this will work if there's a valid session)
+      const response = await userService.getMe()
+      
+      if (response.success && response.data) {
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user: response.data }
+        })
+      } else {
+        dispatch({ type: 'LOGOUT' })
       }
-      if (formData.gender) {
-        uploadData.append("healthProfile.gender", formData.gender);
-      }
-      if (formData.height) {
-        uploadData.append("healthProfile.height", formData.height);
-      }
-      if (formData.weight) {
-        uploadData.append("healthProfile.weight", formData.weight);
-      }
-      if (formData.bloodGroup) {
-        uploadData.append("healthProfile.bloodGroup", formData.bloodGroup);
-      }
-
-      if (formData.avatar) {
-        uploadData.append("avatar", formData.avatar);
-      }
-      if (formData.coverImage) {
-        uploadData.append("coverImage", formData.coverImage);
-      }
-
-      const response = await api.post("/api/v1/users/register", uploadData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      return {
-        success: true,
-        message: response.data.message || "Registration successful",
-        data: response.data.data,
-      };
     } catch (error) {
-      console.error("Registration failed:", error);
-      return {
-        success: false,
-        message:
-          error.response?.data?.message ||
-          "Registration failed. Please try again.",
-      };
-    } finally {
-      setLoading(false);
+      dispatch({ type: 'LOGOUT' })
     }
-  };
+  }
 
-  const login = async ({ email, username, password }) => {
+  const login = async (credentials) => {
     try {
-      setLoading(true);
+      dispatch({ type: 'SET_LOADING', payload: true })
+      dispatch({ type: 'CLEAR_ERROR' })
 
-      const loginData = { password };
-      if (email) loginData.email = email;
-      if (username) loginData.username = username;
-
-      const response = await api.post("/api/v1/users/login", loginData);
-
-      if (response.data.data?.requiresOtp) {
-        setRequiresOtp(true);
-        setEmailForOtp(response.data.data.email); // Use the email from the response
-        return {
-          success: true,
-          requiresOtp: true,
-          message: response.data.data.message || "OTP sent to your email",
-        };
-      } else if (response.data.success) {
-        // If OTP is not required, directly log in the user
-        setUser(response.data.data.user);
-        return {
-          success: true,
-          requiresOtp: false,
-          message: response.data.message || "Login successful",
-        };
-      }
-
-      return {
-        success: false,
-        message: "Unexpected login response",
-      };
-    } catch (error) {
-      console.error("Login failed:", error);
-      return {
-        success: false,
-        message:
-          error.response?.data?.message || "Login failed. Please try again.",
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyOtp = async (otp) => {
-    try {
-      setLoading(true);
-
-      const response = await api.post("/api/v1/users/verify-otp", {
-        email: emailForOtp,
-        otp,
-      });
-
-      if (response.data.success) {
-        setUser(response.data.data.user);
-        setRequiresOtp(false);
-        setEmailForOtp("");
-
-        return {
-          success: true,
-          message: response.data.message || "Login successful",
-        };
-      }
-
-      return {
-        success: false,
-        message: "OTP verification failed",
-      };
-    } catch (error) {
-      console.error("OTP verification failed:", error);
-      return {
-        success: false,
-        message:
-          error.response?.data?.message || "Invalid OTP. Please try again.",
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Memoize logout and refreshToken for stability
-  const logout = useCallback(async () => {
-    try {
-      await api.post("/api/v1/users/logout");
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      setUser(null);
-      setRequiresOtp(false);
-      setEmailForOtp("");
-      navigate("/signin");
-    }
-  }, [navigate]);
-
-  const refreshToken = useCallback(async () => {
-    try {
-      const response = await api.post("/api/v1/users/refresh-token");
-      if (response.data.success && response.data.data) {
-        setUser(response.data.data.user);
-      }
-      return response.data.success;
-    } catch (error) {
-      console.error("Token refresh failed:", error);
-      // Use the logout function defined in this scope
-      await logout();
-      return false;
-    }
-  }, [logout]);
-
-  // This useEffect hook sets up the Axios interceptor.
-  // It runs only once when the component mounts.
-  useEffect(() => {
-    const responseInterceptor = api.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          try {
-            const refreshed = await refreshToken();
-            if (refreshed) {
-              return api.request(originalRequest);
-            }
-          } catch (refreshError) {
-            console.error("Token refresh failed in interceptor", refreshError);
-            await logout();
-          }
+      const response = await userService.login(credentials)
+      
+      if (response.success && response.data) {
+        const { user, tokens } = response.data
+        
+        // Set both tokens in memory and localStorage
+        if (tokens) {
+          setTokens(tokens.accessToken, tokens.refreshToken)
         }
-        return Promise.reject(error);
-      }
-    );
-
-    // Cleanup function to remove the interceptor when the component unmounts
-    return () => {
-      api.interceptors.response.eject(responseInterceptor);
-    };
-  }, [refreshToken, logout]);
-
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      const response = await api.get("/api/v1/users/current-user");
-      if (response.data.success) {
-        setUser(response.data.data);
+        
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user }
+        })
+        
+        return { success: true, data: response.data }
       } else {
-        setUser(null);
+        throw new Error(response.message || 'Login failed')
       }
     } catch (error) {
-      console.log("Not authenticated: " + error);
-      setUser(null);
+      dispatch({
+        type: 'SET_ERROR',
+        payload: error.message || 'Login failed'
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
+  const signup = async (userData) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true })
+      dispatch({ type: 'CLEAR_ERROR' })
+
+      const response = await userService.signup(userData)
+      
+      if (response.success) {
+        return { success: true, data: response.data }
+      } else {
+        throw new Error(response.message || 'Signup failed')
+      }
+    } catch (error) {
+      dispatch({
+        type: 'SET_ERROR',
+        payload: error.message || 'Signup failed'
+      })
+      return { success: false, error: error.message }
     } finally {
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false })
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
-
-  const changePassword = async ({ oldPassword, newPassword }) => {
+  const logout = async () => {
     try {
-      const response = await api.post("/api/v1/users/change-password", {
-        oldPassword,
-        newPassword,
-      });
-
-      return {
-        success: true,
-        message: response.data.message || "Password changed successfully",
-      };
+      await userService.logout()
     } catch (error) {
-      console.error("Password change failed:", error);
-      return {
-        success: false,
-        message: error.response?.data?.message || "Failed to change password",
-      };
+      // Continue with logout even if API call fails
+    } finally {
+      // Clear tokens and state regardless of API call result
+      clearTokens()
+      dispatch({ type: 'LOGOUT' })
     }
-  };
+  }
 
-  const updateAccountDetails = async ({
-    fullName,
-    email,
-    bio,
-    website,
-    location,
-    socialLinks,
-  }) => {
+  const refreshSession = async () => {
     try {
-      const response = await api.patch("/api/v1/users/update-account", {
-        fullName,
-        email,
-        bio,
-        website,
-        location,
-        socialLinks,
-      });
-
-      if (response.data.success) {
-        setUser(response.data.data);
-        return {
-          success: true,
-          message: response.data.message || "Account updated successfully",
-        };
+      const response = await userService.refreshToken()
+      
+      if (response.success && response.data?.tokens) {
+        setTokens(response.data.tokens.accessToken, response.data.tokens.refreshToken)
+        return true
       }
-
-      return {
-        success: false,
-        message: "Failed to update account",
-      };
+      return false
     } catch (error) {
-      console.error("Account update failed:", error);
-      return {
-        success: false,
-        message: error.response?.data?.message || "Failed to update account",
-      };
+      return false
     }
-  };
+  }
 
-  const updateUserHealthProfile = async ({
-    dateOfBirth,
-    gender,
-    height,
-    weight,
-    bloodGroup,
-  }) => {
+  const fetchMe = async () => {
     try {
-      const response = await api.patch("/api/v1/users/health-profile", {
-        dateOfBirth,
-        gender,
-        height,
-        weight,
-        bloodGroup,
-      });
-
-      if (response.data.success) {
-        setUser(response.data.data); // Update user state with new health profile
-        return {
-          success: true,
-          message:
-            response.data.message || "Health profile updated successfully",
-        };
-      }
-
-      return {
-        success: false,
-        message: "Failed to update health profile",
-      };
-    } catch (error) {
-      console.error("Health profile update failed:", error);
-      return {
-        success: false,
-        message:
-          error.response?.data?.message || "Failed to update health profile",
-      };
-    }
-  };
-
-  const updateAvatar = async (avatarFile) => {
-    try {
-      const formData = new FormData();
-      formData.append("avatar", avatarFile);
-
-      const response = await api.patch("/api/v1/users/avatar", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      if (response.data.success) {
-        setUser(response.data.data);
-        return {
-          success: true,
-          message: response.data.message || "Avatar updated successfully",
-        };
-      }
-
-      return {
-        success: false,
-        message: "Failed to update avatar",
-      };
-    } catch (error) {
-      console.error("Avatar update failed:", error);
-      return {
-        success: false,
-        message: error.response?.data?.message || "Failed to update avatar",
-      };
-    }
-  };
-
-  const updateCoverImage = async (coverImageFile) => {
-    try {
-      const formData = new FormData();
-      formData.append("coverImage", coverImageFile);
-
-      const response = await api.patch("/api/v1/users/cover-image", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      if (response.data.success) {
-        setUser(response.data.data);
-        return {
-          success: true,
-          message: response.data.message || "Cover image updated successfully",
-        };
-      }
-
-      return {
-        success: false,
-        message: "Failed to update cover image",
-      };
-    } catch (error) {
-      console.error("Cover image update failed:", error);
-      return {
-        success: false,
-        message:
-          error.response?.data?.message || "Failed to update cover image",
-      };
-    }
-  };
-
-  const getReadHistory = async () => {
-    try {
-      const response = await api.get("/api/v1/users/read-history");
-
-      if (response.data.success) {
-        return {
-          success: true,
-          data: response.data.data,
-        };
-      }
-
-      return {
-        success: false,
-        message: "Failed to fetch read history",
-      };
-    } catch (error) {
-      console.error("Failed to fetch read history:", error);
-      return {
-        success: false,
-        message:
-          error.response?.data?.message || "Failed to fetch read history",
-      };
-    }
-  };
-
-  const deleteAccount = async (userId) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this account? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const response = await api.delete(`/api/v1/users/delete/${userId}`);
-
-      if (response.data.success) {
-        toast({
-          variant: "success",
-          title: "Success",
-          description:
-            "Account and all associated images deleted successfully.",
-        });
-
-        logout();
-        navigate("/signin");
+      const response = await userService.getMe()
+      
+      if (response.success && response.data) {
+        dispatch({
+          type: 'UPDATE_USER',
+          payload: response.data
+        })
+        return response.data
       }
     } catch (error) {
-      console.error("Delete account failed:", error);
-
-      if (error.response?.status === 401) {
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: "Your session has expired. Please log in again.",
-        });
-        navigate("/signin");
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description:
-            error.response?.data?.message ||
-            "Failed to delete account. Please try again.",
-        });
-      }
+      throw error
     }
-  };
+  }
+
+  const updateUser = (userData) => {
+    dispatch({
+      type: 'UPDATE_USER',
+      payload: userData
+    })
+  }
+
+  const clearError = () => {
+    dispatch({ type: 'CLEAR_ERROR' })
+  }
 
   const value = {
-    user,
-    loading,
-    requiresOtp,
-    emailForOtp,
-    isAuthenticated: !!user,
-    register,
+    ...state,
     login,
-    verifyOtp,
+    signup,
     logout,
-    isAdmin: user?.role === "admin",
-    refreshToken,
-    changePassword,
-    updateAccountDetails,
-    updateUserHealthProfile, // Add the new function to the context value
-    updateAvatar,
-    deleteAccount,
-    updateCoverImage,
-    getReadHistory,
-    checkAuthStatus,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    refreshSession,
+    fetchMe,
+    updateUser,
+    clearError
   }
-  return context;
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
+
+// Custom hook to use auth context
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+export default AuthContext
