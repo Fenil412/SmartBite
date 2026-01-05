@@ -9,6 +9,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { applyConstraints } from "../services/constraints.service.js";
+import { notifyMealPlanGenerated } from "../services/notification.service.js";
 
 /**
  * GENERATE WEEKLY MEAL PLAN
@@ -53,6 +54,14 @@ export const generateMealPlan = asyncHandler(async (req, res) => {
     });
     user.lastActiveAt = new Date();
     await user.save({ validateBeforeSave: false });
+
+    // 6. Send notification
+    try {
+        await notifyMealPlanGenerated(user, 'weekly');
+    } catch (error) {
+        console.error(`❌ Failed to send meal plan notification:`, error.message);
+        // Don't fail the request if notification fails
+    }
 
     return ApiResponse.success(
         res,

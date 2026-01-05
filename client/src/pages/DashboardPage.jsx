@@ -112,10 +112,10 @@ const DashboardPage = () => {
       icon: Brain,
       label: 'AI Interactions',
       value: analyticsData?.counts?.totalAiInteractions || 0,
-      description: analyticsData?.flaskAnalytics ? 'AI conversations & analyses' : 'Flask AI service offline',
+      description: analyticsData?.aiAnalytics?.isOnline ? 'AI conversations & analyses' : 'AI data from MongoDB',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20',
-      trend: analyticsData?.flaskAnalytics ? 'Smart insights' : 'Service unavailable'
+      trend: analyticsData?.aiAnalytics?.isOnline ? 'Smart insights' : 'MongoDB source'
     },
     {
       icon: MessageSquare,
@@ -133,7 +133,7 @@ const DashboardPage = () => {
     {
       icon: Database,
       label: 'Data Storage',
-      value: `${Math.round((analyticsData?.flaskAnalytics?.storageStats?.totalSizeKB || 0) + 50)} KB`,
+      value: `${Math.round((analyticsData?.aiAnalytics?.totalInteractions || 0) * 2 + 50)} KB`,
       description: 'Total data stored',
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50 dark:bg-indigo-900/20'
@@ -176,13 +176,13 @@ const DashboardPage = () => {
     {
       icon: Brain,
       title: 'Recent AI Activity',
-      description: analyticsData?.flaskAnalytics?.recentActivity?.[0]?.action ? 
-        `${analyticsData.flaskAnalytics.recentActivity[0].action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 
-        analyticsData?.flaskAnalytics ? 'No recent AI interactions' : 'AI service offline',
-      time: analyticsData?.flaskAnalytics?.recentActivity?.[0]?.timestamp ? 
-        new Date(analyticsData.flaskAnalytics.recentActivity[0].timestamp).toLocaleDateString() : 
+      description: analyticsData?.aiAnalytics?.recentActivity?.[0]?.action ? 
+        `${analyticsData.aiAnalytics.recentActivity[0].action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 
+        analyticsData?.aiAnalytics?.isOnline ? 'No recent AI interactions' : 'AI data available from MongoDB',
+      time: analyticsData?.aiAnalytics?.recentActivity?.[0]?.timestamp ? 
+        new Date(analyticsData.aiAnalytics.recentActivity[0].timestamp).toLocaleDateString() : 
         'N/A',
-      status: analyticsData?.flaskAnalytics?.recentActivity?.[0] ? 'info' : 'warning'
+      status: analyticsData?.aiAnalytics?.recentActivity?.[0] ? 'info' : 'warning'
     },
     {
       icon: Target,
@@ -270,23 +270,22 @@ const DashboardPage = () => {
         </div>
       </motion.div>
 
-      {/* AI Service Status Banner */}
-      {!analyticsData?.flaskAnalytics && (
+      {/* AI Service Status Banner - Remove since we're using MongoDB */}
+      {analyticsData?.aiAnalytics?.totalInteractions === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.05 }}
-          className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4"
+          className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4"
         >
           <div className="flex items-center space-x-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
+            <Info className="h-5 w-5 text-blue-600" />
             <div>
-              <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                AI Service Offline
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                AI Data Available
               </h4>
-              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                The Flask AI service is currently offline. AI interaction counts and recent AI activity may not be available. 
-                Your meal plans, feedback, and other data are still accessible.
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                AI interaction data is now sourced directly from MongoDB. Start using AI features to see your interaction history here.
               </p>
             </div>
           </div>
@@ -474,14 +473,12 @@ const DashboardPage = () => {
               <div className="flex items-center space-x-3">
                 <Brain className="h-5 w-5 text-purple-600" />
                 <span className="text-sm font-medium text-gray-900 dark:text-white">AI Data</span>
-                {!analyticsData?.flaskAnalytics && (
-                  <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded-full">
-                    Offline
-                  </span>
-                )}
+                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+                  MongoDB
+                </span>
               </div>
               <span className="text-sm font-bold text-purple-600">
-                {analyticsData?.flaskAnalytics?.dataBreakdown?.totalDocuments || 0} records
+                {analyticsData?.aiAnalytics?.totalInteractions || 0} records
               </span>
             </div>
             
@@ -571,12 +568,9 @@ const DashboardPage = () => {
               Data Management
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              You have stored {Math.round((analyticsData?.flaskAnalytics?.storageStats?.totalSizeKB || 0) + 50)} KB of data across {dataStats.reduce((sum, stat) => sum + stat.value, 0)} items.
-              Your data includes meal plans, AI interactions{analyticsData?.flaskAnalytics ? '' : ' (service offline)'}, feedback, and profile information. 
-              {analyticsData?.flaskAnalytics ? 
-                'All data is securely stored and can be exported or deleted at any time.' : 
-                'Note: AI service is currently offline, so AI interaction data may not be available for export.'
-              }
+              You have stored {Math.round((analyticsData?.aiAnalytics?.totalInteractions || 0) * 2 + 50)} KB of data across {dataStats.reduce((sum, stat) => sum + stat.value, 0)} items.
+              Your data includes meal plans, AI interactions from MongoDB, feedback, and profile information. 
+              All data is securely stored and can be exported or deleted at any time.
             </p>
           </div>
           <div className="flex space-x-3">

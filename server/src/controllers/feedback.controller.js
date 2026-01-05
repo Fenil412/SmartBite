@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { triggerUserContextSync } from "../services/aiSync.service.js";
+import { notifyFeedbackReceived } from "../services/notification.service.js";
 
 /* ===========================
    SUBMIT FEEDBACK
@@ -29,6 +30,16 @@ export const submitFeedback = asyncHandler(async (req, res) => {
 
   // 🔥 Trigger AI sync when feedback is submitted
   triggerUserContextSync(req.user._id);
+
+  // Send feedback confirmation notification
+  if (rating && rating >= 4) {
+    try {
+      await notifyFeedbackReceived(req.user, type, rating);
+    } catch (error) {
+      console.error(`❌ Failed to send feedback notification:`, error.message);
+      // Don't fail the request if notification fails
+    }
+  }
 
   return ApiResponse.success(
     res,

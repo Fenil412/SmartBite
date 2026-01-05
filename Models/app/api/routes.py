@@ -157,7 +157,13 @@ def generate_weekly_plan_v3():
 
     weekly_plan = {}
     for i, day in enumerate(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]):
-        weekly_plan[day] = generate_meals(distribution, profile)
+        # Add day-specific context to ensure variety
+        day_context = {
+            "day": day,
+            "day_number": i + 1,
+            "week_position": "start" if i < 2 else "middle" if i < 5 else "weekend"
+        }
+        weekly_plan[day] = generate_meals(distribution, profile, day_context)
 
     # Save history using username
     try:
@@ -393,7 +399,54 @@ You are SmartBite AI.
 
 @api.route("/history/<userId>")
 def history(userId):
-    return success(fetch_history(userId))
+    """Get AI history for a specific user"""
+    try:
+        # Try to get user context to find username
+        raw_user_ctx = None
+        username = None
+        
+        try:
+            # First try to resolve from stored context
+            raw_user_ctx = resolve_user_context(userId)
+            if raw_user_ctx:
+                username = extract_username(raw_user_ctx)
+        except Exception:
+            pass
+
+        # If no username found, try to get from Node.js API
+        if not username:
+            try:
+                node_response = requests.get(
+                    f"{os.getenv('NODE_BACKEND_URL')}/api/v1/users/internal/ai/user-context/{userId}",
+                    headers={
+                        "x-internal-key": os.getenv("INTERNAL_HMAC_SECRET")
+                    },
+                    timeout=10
+                )
+                
+                if node_response.status_code == 200:
+                    node_data = node_response.json()
+                    if node_data.get("success") and node_data.get("data"):
+                        raw_user_ctx = node_data["data"]
+                        username = extract_username(raw_user_ctx)
+            except Exception:
+                pass
+
+        # Use userId as fallback username if still not found
+        if not username:
+            username = userId
+
+        # Fetch history using username
+        history_data = fetch_history(username)
+        
+        return success(history_data)
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to fetch history: {str(e)}",
+            "data": []
+        }, 500
 
 @api.route("/weekly-plans/<userId>")
 def get_weekly_plans(userId):

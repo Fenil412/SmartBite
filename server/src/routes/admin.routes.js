@@ -25,7 +25,9 @@ import {
   getRecentActivity,
   getAdminCodes,
   regenerateAdminCodes,
-  exportData
+  exportData,
+  testUserSMS,
+  getNotificationStats
 } from "../controllers/admin.controller.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 import { adminOnly, superAdminOnly } from "../middlewares/role.middleware.js";
@@ -46,6 +48,9 @@ router.put("/users/:userId/status", authMiddleware, adminOnly, updateUserStatus)
 router.delete("/users/:userId", authMiddleware, adminOnly, deleteUser);
 router.put("/users/:userId/restore", authMiddleware, adminOnly, restoreUser);
 
+// SMS Testing (Admin Only)
+router.post("/users/:userId/test-sms", authMiddleware, adminOnly, testUserSMS);
+
 // Content Management
 router.get("/meals", authMiddleware, adminOnly, getAllMeals);
 router.put("/meals/:mealId/status", authMiddleware, adminOnly, updateMealStatus);
@@ -55,6 +60,7 @@ router.delete("/meal-plans/:mealPlanId", authMiddleware, adminOnly, deleteMealPl
 router.get("/constraints", authMiddleware, adminOnly, getAllConstraints);
 router.delete("/constraints/:constraintId", authMiddleware, adminOnly, deleteConstraint);
 router.get("/notifications", authMiddleware, adminOnly, getAllNotifications);
+router.get("/notifications/stats", authMiddleware, adminOnly, getNotificationStats);
 router.delete("/notifications/:notificationId", authMiddleware, adminOnly, deleteNotification);
 router.get("/feedback", authMiddleware, adminOnly, getAllFeedback);
 router.delete("/feedback/:feedbackId", authMiddleware, adminOnly, deleteFeedback);

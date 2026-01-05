@@ -178,6 +178,7 @@ export const getMealCatalogStats = async () => {
 
 /**
  * ML Contract Service for secure communication with Flask AI
+ * NOTE: This is kept for other ML services, but NOT used for analytics dashboard
  */
 class MLContractService {
     constructor() {
@@ -185,7 +186,8 @@ class MLContractService {
         this.internalKey = process.env.INTERNAL_HMAC_SECRET;
         
         if (!this.internalKey) {
-            throw new Error('INTERNAL_HMAC_SECRET is required for ML contract service');
+            console.warn('INTERNAL_HMAC_SECRET not found - Flask ML services will be disabled');
+            return;
         }
     }
 
@@ -201,7 +203,11 @@ class MLContractService {
      * Make authenticated request to Flask AI service
      */
     async makeRequest(endpoint, data) {
-        const timestamp = Math.floor(Date.now() / 1000).toString(); // Convert to seconds
+        if (!this.internalKey) {
+            throw new Error('Flask ML service not configured');
+        }
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
         const signature = this.generateSignature(data, timestamp);
         
         try {
@@ -228,7 +234,7 @@ class MLContractService {
     }
 
     /**
-     * Get AI user context
+     * Get AI user context (for ML services, NOT analytics)
      */
     async getAIUserContext(userId) {
         try {
@@ -240,35 +246,7 @@ class MLContractService {
             throw new Error(`Failed to get AI user context: ${error.message}`);
         }
     }
-
-    /**
-     * Get analytics from Flask
-     */
-    async getAnalytics(userId) {
-        try {
-            const response = await this.makeRequest('/internal/analytics', {
-                userId: userId
-            });
-            return response;
-        } catch (error) {
-            throw new Error(`Failed to get Flask analytics: ${error.message}`);
-        }
-    }
-
-    /**
-     * Export user data from Flask
-     */
-    async exportUserData(userId) {
-        try {
-            const response = await this.makeRequest('/internal/export-data', {
-                userId: userId
-            });
-            return response;
-        } catch (error) {
-            throw new Error(`Failed to export Flask data: ${error.message}`);
-        }
-    }
 }
 
-// Create singleton instance
+// Create singleton instance for other ML services (NOT analytics)
 export const mlContractService = new MLContractService();

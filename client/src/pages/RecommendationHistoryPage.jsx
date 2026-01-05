@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Calendar, BarChart3, MessageSquare, Eye, Sparkles } from 'lucide-react'
+import { ArrowLeft, Calendar, BarChart3, MessageSquare, Eye, Sparkles, RefreshCw } from 'lucide-react'
 import { recommendationService } from '../services/recommendationService'
 import { useToast } from '../contexts/ToastContext'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -14,7 +14,19 @@ const RecommendationHistoryPage = () => {
 
   useEffect(() => {
     loadPlanHistory()
+    
+    // Set up auto-refresh every 30 seconds to show latest plans
+    const interval = setInterval(() => {
+      loadPlanHistory()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
+
+  // Manual refresh function
+  const refreshPlanHistory = () => {
+    loadPlanHistory()
+  }
 
   const loadPlanHistory = async () => {
     try {
@@ -22,9 +34,22 @@ const RecommendationHistoryPage = () => {
       const response = await recommendationService.getMealPlanHistory()
       
       if (response.success) {
-        setPlanHistory(response.data.plans)
+        // Sort plans by creation date (newest first)
+        const sortedPlans = (response.data.plans || []).sort((a, b) => {
+          const dateA = new Date(a.createdAt)
+          const dateB = new Date(b.createdAt)
+          
+          // Handle invalid dates
+          if (isNaN(dateA.getTime())) return 1
+          if (isNaN(dateB.getTime())) return -1
+          
+          return dateB - dateA // Newest first
+        })
+        
+        setPlanHistory(sortedPlans)
       }
     } catch (err) {
+      console.error('Failed to load plan history:', err)
       error(err.message || 'Failed to load meal plan history')
     } finally {
       setLoading(false)
@@ -108,12 +133,27 @@ const RecommendationHistoryPage = () => {
         transition={{ duration: 0.6 }}
         className="mb-8"
       >
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Meal Plan History
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          View all your AI-generated meal plans and their performance
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Meal Plan History
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              View all your AI-generated meal plans and their performance
+            </p>
+          </div>
+          
+          {planHistory.length > 0 && (
+            <button
+              onClick={refreshPlanHistory}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          )}
+        </div>
       </motion.div>
 
       {/* Plans List */}

@@ -6,6 +6,7 @@ Provides comprehensive analytics and data export functionality
 from flask import Blueprint, request, jsonify, send_file
 from datetime import datetime, timedelta
 import json
+import pandas as pd
 import io
 import hmac
 import hashlib
@@ -13,14 +14,6 @@ import time
 import os
 from functools import wraps
 from ..db.mongo import db
-
-# ✅ GRACEFUL PANDAS IMPORT (prevents OOM on Render)
-try:
-    import pandas as pd
-    PANDAS_AVAILABLE = True
-except ImportError:
-    PANDAS_AVAILABLE = False
-    print("Warning: pandas not available. Excel export functionality disabled.")
 
 analytics_bp = Blueprint('analytics', __name__)
 
@@ -260,12 +253,6 @@ def export_user_data():
         }
         
         if export_format == 'excel':
-            if not PANDAS_AVAILABLE:
-                return jsonify({
-                    'success': False,
-                    'error': 'Excel export not available. pandas library not installed. Use JSON format instead.'
-                }), 400
-            
             # Create Excel file
             output = io.BytesIO()
             

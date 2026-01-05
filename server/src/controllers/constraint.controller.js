@@ -87,6 +87,7 @@ export const deleteConstraints = asyncHandler(async (req, res) => {
 
     // Sync user context to Flask AI service
     try {
+        const { syncUserContextToFlask } = await import("./aiSync.service.js");
         const updatedUserContext = {
             userId: userId,
             constraints: null

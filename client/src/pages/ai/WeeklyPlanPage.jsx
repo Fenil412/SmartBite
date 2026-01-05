@@ -1,10 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { flaskAiService } from '../../services/flaskAi.service'
 import { 
   Calendar, 
   Sparkles, 
-  Clock, 
   User, 
   Target, 
   AlertTriangle, 
@@ -18,7 +17,7 @@ import {
   Moon,
   Utensils
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 const WeeklyPlanPage = () => {
   const { user } = useAuth()
@@ -29,7 +28,6 @@ const WeeklyPlanPage = () => {
   const [copyStates, setCopyStates] = useState({}) // For copy feedback
   const [speakingDay, setSpeakingDay] = useState(null) // Track which day is being spoken
   const [currentSpeech, setCurrentSpeech] = useState(null) // Track current speech utterance
-  const speechRef = useRef(null)
   
   // Constants
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -70,6 +68,118 @@ const WeeklyPlanPage = () => {
       dinner: '🌙'
     }
     return emojis[type] || '🍽️'
+  }
+
+  // Enhanced meal extraction function for new detailed AI format
+  const extractMealContent = (content, mealType) => {
+    if (!content || typeof content !== 'string') return ''
+    
+    // Strategy 1: Look for **MealType:** format (new AI format)
+    const boldColonPattern = new RegExp(`\\*\\*\\s*${mealType}\\s*:?\\s*\\*\\*([\\s\\S]*?)(?=\\*\\*\\s*[A-Za-z]|$)`, 'i')
+    let match = content.match(boldColonPattern)
+    if (match && match[1] && match[1].trim().length > 5) {
+      return cleanMealContent(match[1].trim(), mealType)
+    }
+    
+    // Strategy 2: Look for simple MealType: format
+    const simpleColonPattern = new RegExp(`^\\s*${mealType}\\s*:([\\s\\S]*?)(?=^\\s*[A-Za-z]+\\s*:|$)`, 'im')
+    match = content.match(simpleColonPattern)
+    if (match && match[1] && match[1].trim().length > 5) {
+      return cleanMealContent(match[1].trim(), mealType)
+    }
+    
+    // Strategy 3: Split by double asterisks and find meal sections
+    const sections = content.split('**').filter(section => section.trim())
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i].trim()
+      if (section.toLowerCase().includes(mealType.toLowerCase())) {
+        // Found the meal header, get the next section which should be the content
+        if (i + 1 < sections.length) {
+          const mealContent = sections[i + 1].trim()
+          if (mealContent.length > 5) {
+            return cleanMealContent(mealContent, mealType)
+          }
+        }
+      }
+    }
+    
+    // Strategy 4: Split by lines and look for meal-related content
+    const lines = content.split('\n')
+    let mealStartIndex = -1
+    
+    // Find the line that contains our meal type
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].toLowerCase().trim()
+      if (line.includes(mealType.toLowerCase()) && (line.includes(':') || line.includes('**'))) {
+        mealStartIndex = i
+        break
+      }
+    }
+    
+    if (mealStartIndex >= 0) {
+      // Collect lines until we hit the next meal or end
+      const mealLines = []
+      for (let i = mealStartIndex + 1; i < lines.length; i++) {
+        const line = lines[i].trim()
+        if (!line) continue
+        
+        // Stop if we hit another meal header
+        if (line.toLowerCase().includes('breakfast') || 
+            line.toLowerCase().includes('lunch') || 
+            line.toLowerCase().includes('dinner') || 
+            line.toLowerCase().includes('snack')) {
+          // Only stop if it's not our current meal type
+          if (!line.toLowerCase().includes(mealType.toLowerCase())) {
+            break
+          }
+        }
+        
+        mealLines.push(line)
+      }
+      
+      if (mealLines.length > 0) {
+        const mealContent = mealLines.join('\n').trim()
+        if (mealContent.length > 5) {
+          return cleanMealContent(mealContent, mealType)
+        }
+      }
+    }
+    
+    // Strategy 5: Keyword-based fallback
+    const keywords = {
+      'Breakfast': ['oats', 'cereal', 'toast', 'eggs', 'milk', 'coffee', 'pancake', 'waffle', 'smoothie', 'yogurt'],
+      'Lunch': ['rice', 'dal', 'curry', 'roti', 'chapati', 'salad', 'soup', 'sandwich', 'wrap', 'quinoa'],
+      'Snack': ['nuts', 'fruit', 'apple', 'banana', 'berries', 'biscuit', 'cookie', 'tea', 'juice'],
+      'Dinner': ['soup', 'bread', 'pita', 'wheat', 'lentil', 'vegetable', 'protein', 'pasta', 'stir-fry']
+    }
+    
+    const mealKeywords = keywords[mealType] || []
+    for (const line of lines) {
+      const lineLower = line.toLowerCase().trim()
+      if (lineLower && mealKeywords.some(keyword => lineLower.includes(keyword))) {
+        // Check if this line has substantial content
+        if (line.trim().length > 10) {
+          return cleanMealContent(line.trim(), mealType)
+        }
+      }
+    }
+    
+    return ''
+  }
+  
+  // Helper function to clean extracted meal content
+  const cleanMealContent = (content, mealType) => {
+    if (!content) return ''
+    
+    return content
+      .replace(/^\*+|\*+$/g, '') // Remove leading/trailing asterisks
+      .replace(/^#+\s*/, '') // Remove markdown headers
+      .replace(/^\d+\.\s*/, '') // Remove leading numbers
+      .replace(/^[-•·]\s*/, '') // Remove leading bullets
+      .replace(/^\s*:\s*/, '') // Remove leading colon
+      .replace(new RegExp(`^(${mealType}|breakfast|lunch|snack|dinner)\\s*:?\\s*`, 'i'), '') // Remove meal type prefix
+      .replace(/\n\s*\n/g, '\n') // Remove extra line breaks
+      .trim()
   }
   
   // Profile form state
@@ -144,7 +254,7 @@ const WeeklyPlanPage = () => {
       setTimeout(() => {
         setCopyStates(prev => ({ ...prev, [day]: false }))
       }, 2000)
-    }).catch(err => {
+    }).catch(() => {
       // Copy failed silently
     })
   }
@@ -631,70 +741,129 @@ const WeeklyPlanPage = () => {
                           <div className="space-y-4">
                             {/* Check if content has structured meal format */}
                             {weeklyPlan.weeklyPlan[day].includes('Breakfast:') || 
-                             weeklyPlan.weeklyPlan[day].includes('**Breakfast') ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                                {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map((mealType) => {
-                                  // Multiple regex patterns to catch different formats
-                                  const patterns = [
-                                    new RegExp(`\\*\\*${mealType}[:\\*]*\\*\\*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
-                                    new RegExp(`${mealType}:([\\s\\S]*?)(?=\\n\\n|\\n[A-Z]|$)`, 'i'),
-                                    new RegExp(`\\*\\*${mealType}\\*\\*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
-                                    new RegExp(`${mealType}\\s*:([\\s\\S]*?)(?=\\n\\s*\\n|\\n\\s*[A-Z]|$)`, 'i'),
-                                    // Handle snacks specifically
-                                    mealType === 'Snack' ? new RegExp(`(snacks?|evening\\s+snack)\\s*:([\\s\\S]*?)(?=\\n\\s*\\n|\\n\\s*[A-Z]|$)`, 'i') : null
-                                  ].filter(Boolean)
+                             weeklyPlan.weeklyPlan[day].includes('**Breakfast') ||
+                             weeklyPlan.weeklyPlan[day].toLowerCase().includes('breakfast') ||
+                             weeklyPlan.weeklyPlan[day].toLowerCase().includes('lunch') ||
+                             weeklyPlan.weeklyPlan[day].toLowerCase().includes('dinner') ? (
+                              <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                  {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map((mealType) => {
+                                    // Use the enhanced extraction function
+                                    const mealContent = extractMealContent(weeklyPlan.weeklyPlan[day], mealType)
+                                    
+                                    // Always render the meal card, even if content is empty
+                                    const displayContent = mealContent || `No ${mealType.toLowerCase()} information available`
+                                    const isEmpty = !mealContent
+                                    
+                                    return (
+                                      <motion.div
+                                        key={mealType}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 }}
+                                        className={`rounded-lg p-4 border shadow-sm hover:shadow-md transition-shadow ${
+                                          isEmpty 
+                                            ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' 
+                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
+                                        }`}
+                                      >
+                                        <div className="flex items-center space-x-2 mb-3">
+                                          <div className={`p-1.5 rounded-lg text-white ${
+                                            isEmpty 
+                                              ? 'bg-gray-400' 
+                                              : 'bg-gradient-to-r from-blue-500 to-purple-500'
+                                          }`}>
+                                            {getMealTypeIcon(mealType.toLowerCase())}
+                                          </div>
+                                          <div>
+                                            <h4 className={`font-semibold text-sm ${
+                                              isEmpty 
+                                                ? 'text-gray-500 dark:text-gray-400' 
+                                                : 'text-gray-900 dark:text-white'
+                                            }`}>
+                                              {getMealEmoji(mealType.toLowerCase())} {mealType}
+                                            </h4>
+                                          </div>
+                                        </div>
+                                        <div 
+                                          className={`text-sm leading-relaxed ${
+                                            isEmpty 
+                                              ? 'text-gray-400 dark:text-gray-500 italic' 
+                                              : 'text-gray-700 dark:text-gray-300'
+                                          }`}
+                                          dangerouslySetInnerHTML={{ 
+                                            __html: displayContent
+                                              .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900 dark:text-white">$1</strong>')
+                                              .replace(/\n/g, '<br>')
+                                          }}
+                                        />
+                                      </motion.div>
+                                    )
+                                  })}
+                                </div>
+                                
+                                {/* Show a summary of what meals were found */}
+                                <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                                  {(() => {
+                                    const foundMeals = ['Breakfast', 'Lunch', 'Snack', 'Dinner'].filter(mealType => {
+                                      const content = extractMealContent(weeklyPlan.weeklyPlan[day], mealType)
+                                      return content && content.length > 0
+                                    })
+                                    const missingMeals = ['Breakfast', 'Lunch', 'Snack', 'Dinner'].filter(mealType => {
+                                      const content = extractMealContent(weeklyPlan.weeklyPlan[day], mealType)
+                                      return !content || content.length === 0
+                                    })
+                                    
+                                    let summary = ''
+                                    if (foundMeals.length > 0) {
+                                      summary += `✅ Found: ${foundMeals.join(', ')}`
+                                    }
+                                    if (missingMeals.length > 0) {
+                                      if (summary) summary += ' | '
+                                      summary += `⚠️ Missing: ${missingMeals.join(', ')}`
+                                    }
+                                    
+                                    return summary || 'All meals displayed'
+                                  })()}
+                                </div>
+                              </>
+                            ) : (
+                              /* Fallback to full text display with JSON detection */
+                              <div>
+                                {(() => {
+                                  let content = weeklyPlan.weeklyPlan[day]
                                   
-                                  let mealContent = ''
-                                  
-                                  // Try each pattern until we find a match
-                                  for (const pattern of patterns) {
-                                    const match = weeklyPlan.weeklyPlan[day].match(pattern)
-                                    if (match) {
-                                      mealContent = match[1] || match[2] || ''
-                                      mealContent = mealContent.trim()
-                                      break
+                                  // Check if content is JSON-like and try to format it
+                                  if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+                                    try {
+                                      const parsed = JSON.parse(content)
+                                      // If it's a valid JSON object, format it nicely
+                                      if (typeof parsed === 'object') {
+                                        content = Object.entries(parsed).map(([key, value]) => {
+                                          if (typeof value === 'object') {
+                                            return `**${key}:**\n${JSON.stringify(value, null, 2)}`
+                                          }
+                                          return `**${key}:** ${value}`
+                                        }).join('\n\n')
+                                      }
+                                    } catch (e) {
+                                      // If JSON parsing fails, show as is but with warning
+                                      content = `⚠️ **Raw Data Format:**\n\n${content}`
                                     }
                                   }
                                   
-                                  // If no structured content found, skip this meal type
-                                  if (!mealContent) return null
-                                  
                                   return (
-                                    <motion.div
-                                      key={mealType}
-                                      initial={{ opacity: 0, y: 20 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      transition={{ delay: 0.1 }}
-                                      className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow"
-                                    >
-                                      <div className="flex items-center space-x-2 mb-3">
-                                        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg text-white">
-                                          {getMealTypeIcon(mealType.toLowerCase())}
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                            {getMealEmoji(mealType.toLowerCase())} {mealType}
-                                          </h4>
-                                        </div>
-                                      </div>
-                                      <div 
-                                        className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
-                                        dangerouslySetInnerHTML={{ 
-                                          __html: mealContent.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900 dark:text-white">$1</strong>')
-                                        }}
-                                      />
-                                    </motion.div>
+                                    <div 
+                                      className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed"
+                                      dangerouslySetInnerHTML={{ 
+                                        __html: content
+                                          .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900 dark:text-white bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">$1</strong>')
+                                          .replace(/\n/g, '<br>')
+                                      }}
+                                    />
                                   )
-                                })}
+                                })()}
                               </div>
-                            ) : (
-                              /* Fallback to full text display */
-                              <div 
-                                className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed"
-                                dangerouslySetInnerHTML={{ 
-                                  __html: weeklyPlan.weeklyPlan[day].replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900 dark:text-white bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">$1</strong>')
-                                }}
-                              />
                             )}
                           </div>
                         </div>

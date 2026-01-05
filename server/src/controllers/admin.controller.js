@@ -925,6 +925,178 @@ const exportData = asyncHandler(async (req, res) => {
   }
 });
 
+// -------------------- SMS TESTING --------------------
+
+const testUserSMS = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  const { userId } = req.params;
+  const { message } = req.body;
+
+  if (!userId) {
+    throw new ApiError("User ID is required", 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  if (!user.phone) {
+    throw new ApiError("User has no phone number", 400);
+  }
+
+  try {
+    const { testSMS } = await import("../utils/sms.js");
+    const { notifyLogin } = await import("../services/notification.service.js");
+    
+    const customMessage = message || `Test SMS from SmartBite Admin. User: ${user.name}. Time: ${new Date().toLocaleString()}`;
+    
+    // Test direct SMS
+    const smsResult = await testSMS(user.phone);
+    
+    // Also test the notification system
+    const notificationResult = await notifyLogin(user);
+    
+    return ApiResponse.success(res, {
+      message: "SMS test completed successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      },
+      smsResult,
+      notificationResult,
+      twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER)
+    }, 200);
+    
+  } catch (error) {
+    console.error("❌ Admin SMS test failed:", error);
+    
+    return ApiResponse.success(res, {
+      message: "SMS test failed",
+      error: error.message,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      },
+      twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
+      troubleshooting: {
+        checkPhone: "Ensure phone number is in international format (+1234567890)",
+        checkTwilio: "Verify Twilio credentials are properly configured",
+        checkBalance: "Check if Twilio account has sufficient balance",
+        checkNumber: "Ensure the Twilio phone number is verified and active"
+      }
+    }, 200);
+  }
+});
+
+const getNotificationStats = asyncHandler(async (req, res) => {
+  // Check if user has admin role
+  if (!req.user.roles?.includes('admin') && !req.user.roles?.includes('super_admin')) {
+    throw new ApiError("Admin access required", 403);
+  }
+
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Overall notification stats
+    const totalNotifications = await Notification.countDocuments();
+    const sentNotifications = await Notification.countDocuments({ status: "sent" });
+    const failedNotifications = await Notification.countDocuments({ status: "failed" });
+    const pendingNotifications = await Notification.countDocuments({ status: "pending" });
+
+    // SMS specific stats
+    const smsSuccessful = await Notification.countDocuments({ "channels.sms.status": "success" });
+    const smsFailed = await Notification.countDocuments({ "channels.sms.status": "failed" });
+    
+    // Email specific stats
+    const emailSuccessful = await Notification.countDocuments({ "channels.email.status": "success" });
+    const emailFailed = await Notification.countDocuments({ "channels.email.status": "failed" });
+
+    // Recent notifications (last 24 hours)
+    const recentNotifications = await Notification.countDocuments({
+      createdAt: { $gte: startOfToday }
+    });
+
+    // Event breakdown
+    const eventStats = await Notification.aggregate([
+      {
+        $group: {
+          _id: "$event",
+          count: { $sum: 1 },
+          successful: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "sent"] }, 1, 0]
+            }
+          },
+          failed: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "failed"] }, 1, 0]
+            }
+          }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Users with phone numbers
+    const usersWithPhone = await User.countDocuments({ 
+      phone: { $exists: true, $ne: null, $ne: "" },
+      isDeleted: false 
+    });
+    const totalActiveUsers = await User.countDocuments({ isDeleted: false });
+
+    // Twilio configuration status
+    const twilioConfigured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER);
+
+    return ApiResponse.success(res, {
+      overview: {
+        totalNotifications,
+        sentNotifications,
+        failedNotifications,
+        pendingNotifications,
+        successRate: totalNotifications > 0 ? ((sentNotifications / totalNotifications) * 100).toFixed(2) : 0,
+        recentNotifications
+      },
+      channels: {
+        sms: {
+          successful: smsSuccessful,
+          failed: smsFailed,
+          successRate: (smsSuccessful + smsFailed) > 0 ? ((smsSuccessful / (smsSuccessful + smsFailed)) * 100).toFixed(2) : 0
+        },
+        email: {
+          successful: emailSuccessful,
+          failed: emailFailed,
+          successRate: (emailSuccessful + emailFailed) > 0 ? ((emailSuccessful / (emailSuccessful + emailFailed)) * 100).toFixed(2) : 0
+        }
+      },
+      users: {
+        totalActiveUsers,
+        usersWithPhone,
+        phoneNumberCoverage: totalActiveUsers > 0 ? ((usersWithPhone / totalActiveUsers) * 100).toFixed(2) : 0
+      },
+      configuration: {
+        twilioConfigured,
+        twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ? `${process.env.TWILIO_ACCOUNT_SID.substring(0, 8)}...` : null,
+        twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER || null
+      },
+      eventBreakdown: eventStats
+    }, 200);
+
+  } catch (error) {
+    console.error('Notification stats error:', error);
+    throw new ApiError("Failed to fetch notification statistics", 500);
+  }
+});
+
 export {
   getDashboardStats,
   getSystemInfo,
@@ -942,5 +1114,7 @@ export {
   getRecentActivity,
   getAdminCodes,
   regenerateAdminCodes,
-  exportData
+  exportData,
+  testUserSMS,
+  getNotificationStats
 };

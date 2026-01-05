@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
+import { notifyMealCreated } from "../services/notification.service.js";
 
 /* ===========================
    CREATE MEAL
@@ -59,6 +60,14 @@ export const createMeal = asyncHandler(async (req, res) => {
   }
 
   const meal = await Meal.create(mealData);
+
+  // Send meal creation notification
+  try {
+    await notifyMealCreated(req.user, meal.name);
+  } catch (error) {
+    console.error(`❌ Failed to send meal creation notification:`, error.message);
+    // Don't fail the request if notification fails
+  }
 
   return ApiResponse.success(
     res,

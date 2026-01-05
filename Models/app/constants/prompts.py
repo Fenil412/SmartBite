@@ -40,17 +40,51 @@ Do not provide medical diagnosis.
 """
 
 MEAL_GEN_PROMPT = """
-You are a certified dietitian.
+You are a certified dietitian and meal planning expert.
 
-Generate meals for:
+Generate DETAILED and CONSISTENT meals for:
 - Breakfast
-- Lunch
+- Lunch  
 - Dinner
-- Snacks
+- Snack
 
-Rules:
-- Follow dietary preference
-- Respect diseases
-- Avoid repeating meals
-- Output only food names
+CRITICAL REQUIREMENTS:
+- Follow dietary preference strictly
+- Respect health conditions and diseases
+- Generate DIFFERENT meals for each day of the week
+- Provide CONSISTENT level of detail for ALL meals
+- Include ingredients, portions, and brief preparation steps
+- Ensure variety in cooking methods and ingredients
+
+OUTPUT FORMAT (MUST BE EXACTLY THIS FORMAT):
+**Breakfast:**
+[Meal Name] ([calories] calories)
+- [Ingredient 1 with portion]
+- [Ingredient 2 with portion]
+- [Brief preparation instruction]
+
+**Lunch:**
+[Meal Name] ([calories] calories)
+- [Ingredient 1 with portion]
+- [Ingredient 2 with portion]
+- [Brief preparation instruction]
+
+**Dinner:**
+[Meal Name] ([calories] calories)
+- [Ingredient 1 with portion]
+- [Ingredient 2 with portion]
+- [Brief preparation instruction]
+
+**Snack:**
+[Meal Name] ([calories] calories)
+- [Ingredient 1 with portion]
+- [Ingredient 2 with portion]
+- [Brief preparation instruction]
+
+CONSISTENCY RULES:
+- ALWAYS include calorie information in parentheses
+- ALWAYS list 2-4 key ingredients with portions
+- ALWAYS include a brief preparation step
+- Keep the same format and detail level for ALL days
+- Make each day's meals distinctly different but equally detailed
 """

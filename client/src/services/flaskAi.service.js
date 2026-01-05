@@ -88,7 +88,8 @@ export const flaskAiService = {
 
   // Get AI History
   async getHistory(userId) {
-    return await flaskAi.get(`/history/${userId}`)
+    const response = await flaskAi.get(`/history/${userId}`)
+    return response
   },
 
   // Weekly Meal Summary

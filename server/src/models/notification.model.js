@@ -23,7 +23,9 @@ const NotificationSchema = new mongoose.Schema(
             },
             sms: {
                 status: { type: String, enum: ["success", "failed"], default: "failed" },
-                error: String
+                error: String,
+                twilioSid: String,
+                phoneNumber: String
             }
         },
 

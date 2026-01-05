@@ -5,7 +5,7 @@ import { Feedback } from '../models/feedback.model.js'
 import { Constraint } from '../models/constraint.model.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
-import { mlContractService } from '../services/mlContract.service.js'
+import { AiHistoryService } from '../services/aiHistory.service.js'
 
 // Get comprehensive analytics data
 const getAnalytics = asyncHandler(async (req, res) => {
@@ -22,23 +22,33 @@ const getAnalytics = asyncHandler(async (req, res) => {
       latestMealPlan
     ] = await Promise.allSettled([
       User.findById(userId).select('-password -refreshToken'),
-      Meal.countDocuments({ createdBy: userId }), // Count ALL meals created by user (removed isActive filter)
-      MealPlan.countDocuments({ user: userId }), // Count all meal plans (past, current, future)
+      Meal.countDocuments({ createdBy: userId }),
+      MealPlan.countDocuments({ user: userId }),
       Feedback.find({ user: userId }).sort({ createdAt: -1 }),
       Constraint.find({ user: userId }).sort({ createdAt: -1 }),
       MealPlan.findOne({ user: userId }).sort({ createdAt: -1 }).select('title createdAt weekStartDate')
     ])
 
-    // Try to get Flask analytics, but don't fail if Flask is not available
-    let flaskData = null
+    // Get AI interactions directly from MongoDB ai_history collection
+    let aiStats = {
+      totalInteractions: 0,
+      successfulInteractions: 0,
+      failedInteractions: 0,
+      successRate: 0,
+      interactionsByType: [],
+      recentInteractions: []
+    }
     let totalAiInteractions = 0
     
     try {
-      const flaskAnalytics = await mlContractService.getAnalytics(userId)
-      flaskData = flaskAnalytics?.data || flaskAnalytics // Handle both response formats
-      totalAiInteractions = flaskData?.totalInteractions || 0
+      const fetchedAiStats = await AiHistoryService.getUserAiStats(userId)
+      if (fetchedAiStats) {
+        aiStats = fetchedAiStats
+        totalAiInteractions = fetchedAiStats.totalInteractions || 0
+      }
     } catch (error) {
-      // Flask analytics not available, continue without Flask data
+      console.error('❌ Error fetching AI history:', error.message)
+      // aiStats already has default values
     }
 
     // Process results
@@ -73,6 +83,13 @@ const getAnalytics = asyncHandler(async (req, res) => {
       }
     })
 
+    // Add AI interaction dates to activity
+    if (aiStats?.interactionsByDate) {
+      aiStats.interactionsByDate.forEach(day => {
+        activityDates.add(new Date(day._id).toDateString())
+      })
+    }
+
     const analytics = {
       // User information
       user: {
@@ -85,13 +102,13 @@ const getAnalytics = asyncHandler(async (req, res) => {
         avatar: userData?.avatar
       },
 
-      // Data counts - CORRECTED
+      // Data counts - Using MongoDB AI data only
       counts: {
-        totalMealPlans: mealPlanCount, // All meal plans (past, current, future)
-        totalMeals: mealCount, // All individual meals created by user
+        totalMealPlans: mealPlanCount,
+        totalMeals: mealCount,
         totalFeedbacks: feedbacksData.length,
         totalConstraints: constraintsData.length,
-        totalAiInteractions: totalAiInteractions // All Flask API interactions
+        totalAiInteractions: totalAiInteractions // Direct from MongoDB ai_history collection
       },
 
       // Statistics
@@ -99,7 +116,8 @@ const getAnalytics = asyncHandler(async (req, res) => {
         accountAge: accountAge,
         activeDays: activityDates.size,
         averageMealsPerPlan: mealPlanCount > 0 ? Math.round(mealCount / mealPlanCount) : 0,
-        feedbackRate: mealCount > 0 ? Math.round((feedbacksData.length / mealCount) * 100) : 0
+        feedbackRate: mealCount > 0 ? Math.round((feedbacksData.length / mealCount) * 100) : 0,
+        aiSuccessRate: aiStats?.successRate || 0
       },
 
       // Recent data
@@ -110,11 +128,22 @@ const getAnalytics = asyncHandler(async (req, res) => {
           weekStartDate: latestMealPlanData.weekStartDate
         } : null,
         latestFeedback: feedbacksData.length > 0 ? feedbacksData[0] : null,
-        latestConstraint: constraintsData.length > 0 ? constraintsData[0] : null
+        latestConstraint: constraintsData.length > 0 ? constraintsData[0] : null,
+        recentAiInteractions: aiStats?.recentInteractions || []
       },
 
-      // Flask analytics (may be null if Flask is not available)
-      flaskAnalytics: flaskData,
+      // AI Analytics from MongoDB (always available)
+      aiAnalytics: {
+        totalInteractions: aiStats.totalInteractions || 0,
+        successfulInteractions: aiStats.successfulInteractions || 0,
+        failedInteractions: aiStats.failedInteractions || 0,
+        successRate: aiStats.successRate || 0,
+        interactionsByType: aiStats.interactionsByType || [],
+        favoriteService: (aiStats.interactionsByType && aiStats.interactionsByType.length > 0) ? aiStats.interactionsByType[0] : null,
+        recentActivity: (aiStats.recentInteractions || []).slice(0, 5),
+        isOnline: true, // Always true since we're using MongoDB directly
+        source: 'MongoDB'
+      },
 
       // Data breakdown
       breakdown: {
@@ -136,7 +165,10 @@ const getAnalytics = asyncHandler(async (req, res) => {
         },
         aiInteractions: {
           total: totalAiInteractions,
-          description: 'All AI interactions from Flask backend'
+          description: 'All AI interactions from MongoDB ai_history collection',
+          source: 'MongoDB',
+          isOnline: true,
+          breakdown: aiStats.interactionsByType || []
         }
       }
     }
@@ -171,32 +203,32 @@ const exportUserData = asyncHandler(async (req, res) => {
       Constraint.find({ user: userId })
     ])
 
-    // Try to get Flask data, but don't fail if Flask is not available
-    let flaskData = null
+    // Get AI data from MongoDB
+    let aiData = null
     try {
-      const flaskExport = await mlContractService.exportUserData(userId)
-      flaskData = flaskExport
+      aiData = await AiHistoryService.getUserAiStats(userId)
     } catch (error) {
-      // Flask export not available, continue without Flask data
+      console.error('Error fetching AI data for export:', error.message)
     }
 
     const exportData = {
       exportInfo: {
         userId: userId,
         exportDate: new Date().toISOString(),
-        version: '2.0',
-        source: 'SmartBite Complete Data Export'
+        version: '3.0',
+        source: 'SmartBite Complete Data Export (MongoDB Direct)'
       },
       userData: user.status === 'fulfilled' ? user.value : null,
       mealPlans: mealPlans.status === 'fulfilled' ? mealPlans.value : [],
       feedbacks: feedbacks.status === 'fulfilled' ? feedbacks.value : [],
       constraints: constraints.status === 'fulfilled' ? constraints.value : [],
-      flaskData: flaskData,
+      aiData: aiData,
       summary: {
         totalMealPlans: mealPlans.status === 'fulfilled' ? mealPlans.value.length : 0,
         totalFeedbacks: feedbacks.status === 'fulfilled' ? feedbacks.value.length : 0,
         totalConstraints: constraints.status === 'fulfilled' ? constraints.value.length : 0,
-        flaskDataAvailable: flaskData !== null
+        totalAiInteractions: aiData?.totalInteractions || 0,
+        aiDataAvailable: aiData !== null
       },
       readme: {
         description: 'This file contains all your SmartBite data in a structured format.',
@@ -205,9 +237,9 @@ const exportUserData = asyncHandler(async (req, res) => {
           mealPlans: 'All your created meal plans with detailed information',
           feedbacks: 'Your meal ratings and reviews',
           constraints: 'Your dietary constraints and preferences',
-          flaskData: 'AI interactions and generated content (if available)'
+          aiData: 'AI interactions and usage statistics from MongoDB'
         },
-        note: flaskData ? 'Complete export including AI data' : 'Basic export - AI data not available (Flask service not running)',
+        note: aiData ? 'Complete export including AI interaction data' : 'Basic export - AI data not available',
         support: 'For questions about this data export, contact SmartBite support.'
       }
     }
@@ -284,9 +316,79 @@ const getConstraintStats = asyncHandler(async (req, res) => {
   }
 })
 
+// Get AI interaction statistics
+const getAiInteractionStats = asyncHandler(async (req, res) => {
+  const userId = req.user._id
+
+  try {
+    const aiStats = await AiHistoryService.getUserAiStats(userId)
+    
+    return res.status(200).json({
+      success: true,
+      data: aiStats,
+      message: "AI interaction statistics retrieved successfully"
+    })
+
+  } catch (error) {
+    console.error('AI stats error:', error)
+    throw new ApiError(`Failed to fetch AI interaction stats: ${error.message}`, 500)
+  }
+})
+
+// Get AI interaction history with pagination
+const getAiInteractionHistory = asyncHandler(async (req, res) => {
+  const userId = req.user._id
+  const { page = 1, limit = 20, type, startDate, endDate, success } = req.query
+
+  try {
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      type,
+      startDate,
+      endDate,
+      success: success !== undefined ? success === 'true' : null
+    }
+
+    const history = await AiHistoryService.getUserAiHistory(userId, options)
+    
+    return res.status(200).json({
+      success: true,
+      data: history,
+      message: "AI interaction history retrieved successfully"
+    })
+
+  } catch (error) {
+    console.error('AI history error:', error)
+    throw new ApiError(`Failed to fetch AI interaction history: ${error.message}`, 500)
+  }
+})
+
+// Get AI dashboard summary
+const getAiDashboardSummary = asyncHandler(async (req, res) => {
+  const userId = req.user._id
+
+  try {
+    const summary = await AiHistoryService.getDashboardSummary(userId)
+    
+    return res.status(200).json({
+      success: true,
+      data: summary,
+      message: "AI dashboard summary retrieved successfully"
+    })
+
+  } catch (error) {
+    console.error('AI dashboard summary error:', error)
+    throw new ApiError(`Failed to fetch AI dashboard summary: ${error.message}`, 500)
+  }
+})
+
 export {
   getAnalytics,
   exportUserData,
   getFeedbackStats,
-  getConstraintStats
+  getConstraintStats,
+  getAiInteractionStats,
+  getAiInteractionHistory,
+  getAiDashboardSummary
 }

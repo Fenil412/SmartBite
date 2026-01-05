@@ -53,6 +53,22 @@ def create_app():
             'cors_origin': cors_origin
         })
     
+    # Debug endpoint to list all routes
+    @app.route('/debug/routes', methods=['GET'])
+    def list_routes():
+        """List all available routes for debugging"""
+        routes = []
+        for rule in app.url_map.iter_rules():
+            routes.append({
+                'endpoint': rule.endpoint,
+                'methods': list(rule.methods),
+                'rule': str(rule)
+            })
+        return jsonify({
+            'total_routes': len(routes),
+            'routes': sorted(routes, key=lambda x: x['rule'])
+        })
+    
     # Error handlers
     @app.errorhandler(404)
     def not_found(error):
@@ -63,7 +79,8 @@ def create_app():
         return jsonify({'error': 'Internal server error'}), 500
     
     # Register blueprints
-    app.register_blueprint(api, url_prefix='/api')
+    # Main API routes - register at root level for direct client calls
+    app.register_blueprint(api, url_prefix='/')
     app.register_blueprint(internal_api, url_prefix='/internal')
     app.register_blueprint(analytics_bp, url_prefix='/analytics')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
@@ -76,6 +93,9 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT"))  # Render injects this
-    logger.info(f"Starting Flask AI Service on 0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    
+    logger.info(f"Starting Flask AI Service on {host}:{port}")
+    app.run(host=host, port=port, debug=debug)

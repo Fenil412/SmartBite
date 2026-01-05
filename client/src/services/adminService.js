@@ -221,7 +221,7 @@ const adminService = {
       const body = JSON.stringify({ userId })
       const signature = await generateHMACSignature(timestamp + body)
       
-      const response = await fetch('http://localhost:5000/analytics/internal/analytics', {
+      const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/analytics/internal/analytics`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ const adminService = {
       const body = JSON.stringify({})
       const signature = await generateHMACSignature(timestamp + body)
       
-      const response = await fetch('http://localhost:5000/analytics/internal/ai-dashboard-stats', {
+      const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/analytics/internal/ai-dashboard-stats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

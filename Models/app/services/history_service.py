@@ -15,5 +15,5 @@ def fetch_history(username: str):
         history_collection.find(
             {"username": username},
             {"_id": 0}
-        )
+        ).sort("createdAt", -1)  # Sort by newest first
     )

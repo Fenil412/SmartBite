@@ -12,7 +12,8 @@ import {
   Trash2,
   Eye,
   Filter,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react'
 
 const AiHistoryPage = () => {
@@ -24,10 +25,23 @@ const AiHistoryPage = () => {
   const [typeFilter, setTypeFilter] = useState('all')
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   useEffect(() => {
     loadHistory()
+    
+    // Set up auto-refresh every 30 seconds to show latest data
+    const interval = setInterval(() => {
+      loadHistory()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [user])
+
+  // Add manual refresh function
+  const refreshHistory = () => {
+    loadHistory()
+  }
 
   const loadHistory = async () => {
     if (!user?._id) return
@@ -57,10 +71,12 @@ const AiHistoryPage = () => {
         })
         
         setHistory(transformedHistory)
+        setLastUpdated(new Date())
       } else {
         setHistory([])
       }
     } catch (error) {
+      console.error('Failed to load AI history:', error)
       setError(error.message || 'Failed to load AI history')
       setHistory([])
     } finally {
@@ -150,26 +166,32 @@ const AiHistoryPage = () => {
     return titles[type] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  // Time-based filtering
+  // Time-based filtering - Fixed logic
   const filterByTime = (items) => {
     if (timeFilter === 'all') return items
     
     const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const thisWeekStart = new Date(today)
-    thisWeekStart.setDate(today.getDate() - today.getDay()) // Start of week (Sunday)
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     
     return items.filter(item => {
       const itemDate = new Date(item.timestamp)
+      if (isNaN(itemDate.getTime())) return false // Skip invalid dates
       
       switch (timeFilter) {
-        case 'today':
+        case 'today': {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
           return itemDate >= today
-        case 'week':
-          return itemDate >= thisWeekStart
-        case 'month':
-          return itemDate >= thisMonthStart
+        }
+        case 'week': {
+          const weekStart = new Date(now)
+          weekStart.setDate(now.getDate() - now.getDay()) // Start of week (Sunday)
+          weekStart.setHours(0, 0, 0, 0)
+          return itemDate >= weekStart
+        }
+        case 'month': {
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+          monthStart.setHours(0, 0, 0, 0)
+          return itemDate >= monthStart
+        }
         default:
           return true
       }
@@ -187,26 +209,40 @@ const AiHistoryPage = () => {
 
   const uniqueTypes = [...new Set(history.map(item => item.type))]
 
+  // Fixed time filter options with proper counting
   const timeFilterOptions = [
     { value: 'all', label: 'All Time', count: history.length },
-    { value: 'today', label: 'Today', count: filterByTime(history).filter(item => {
-      const itemDate = new Date(item.timestamp)
-      const today = new Date()
-      return itemDate.toDateString() === today.toDateString()
-    }).length },
-    { value: 'week', label: 'This Week', count: filterByTime(history.filter(item => {
-      const itemDate = new Date(item.timestamp)
-      const now = new Date()
-      const weekStart = new Date(now)
-      weekStart.setDate(now.getDate() - now.getDay())
-      return itemDate >= weekStart
-    })).length },
-    { value: 'month', label: 'This Month', count: filterByTime(history.filter(item => {
-      const itemDate = new Date(item.timestamp)
-      const now = new Date()
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-      return itemDate >= monthStart
-    })).length }
+    { 
+      value: 'today', 
+      label: 'Today', 
+      count: history.filter(item => {
+        const itemDate = new Date(item.timestamp)
+        const today = new Date()
+        return itemDate.toDateString() === today.toDateString()
+      }).length 
+    },
+    { 
+      value: 'week', 
+      label: 'This Week', 
+      count: history.filter(item => {
+        const itemDate = new Date(item.timestamp)
+        const now = new Date()
+        const weekStart = new Date(now)
+        weekStart.setDate(now.getDate() - now.getDay())
+        weekStart.setHours(0, 0, 0, 0)
+        return itemDate >= weekStart
+      }).length 
+    },
+    { 
+      value: 'month', 
+      label: 'This Month', 
+      count: history.filter(item => {
+        const itemDate = new Date(item.timestamp)
+        const now = new Date()
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        return itemDate >= monthStart
+      }).length 
+    }
   ]
 
   const clearHistory = async () => {
@@ -254,17 +290,32 @@ const AiHistoryPage = () => {
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
               View your AI interactions and generated content
+              {lastUpdated && (
+                <span className="block text-xs text-gray-500 mt-1">
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
             </p>
           </div>
-          {history.length > 0 && (
+          <div className="flex items-center space-x-3">
             <button
-              onClick={clearHistory}
-              className="px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex items-center"
+              onClick={refreshHistory}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear History
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
-          )}
+            {history.length > 0 && (
+              <button
+                onClick={clearHistory}
+                className="px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex items-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear History
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

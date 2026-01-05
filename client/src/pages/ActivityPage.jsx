@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Activity, Calendar, TrendingUp, Clock, Filter } from 'lucide-react'
+import { Activity, Calendar, TrendingUp, Clock, Filter, RefreshCw } from 'lucide-react'
 import { userService } from '../services/userService'
 import { useToast } from '../contexts/ToastContext'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -16,12 +16,27 @@ const ActivityPage = () => {
   const [loading, setLoading] = useState(true)
   const [isLoadingStats, setIsLoadingStats] = useState(false)
   const [filter, setFilter] = useState('all') // all, today, week, month
+  const [lastUpdated, setLastUpdated] = useState(null)
   const { error: showError } = useToast()
 
   useEffect(() => {
     loadActivityData()
     fetchActivityStats()
+    
+    // Set up auto-refresh every 60 seconds for activity data
+    const interval = setInterval(() => {
+      loadActivityData()
+      fetchActivityStats()
+    }, 60000)
+    
+    return () => clearInterval(interval)
   }, [filter])
+
+  // Manual refresh function
+  const refreshData = () => {
+    loadActivityData()
+    fetchActivityStats()
+  }
 
   const fetchActivityStats = async () => {
     setIsLoadingStats(true)
@@ -44,32 +59,36 @@ const ActivityPage = () => {
       const response = await userService.getActivityHistory()
       
       if (response.success) {
-        let filteredData = response.data.activities || []
+        // Get the activities array from the response
+        let activities = response.data.activities || response.data.activityHistory || []
         
         // Apply filtering based on selected filter
         const now = new Date()
         
         switch (filter) {
-          case 'today':
+          case 'today': {
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            filteredData = filteredData.filter(activity => 
+            activities = activities.filter(activity => 
               new Date(activity.createdAt) >= today
             )
             break
+          }
             
-          case 'week':
+          case 'week': {
             const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-            filteredData = filteredData.filter(activity => 
+            activities = activities.filter(activity => 
               new Date(activity.createdAt) >= weekAgo
             )
             break
+          }
             
-          case 'month':
+          case 'month': {
             const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-            filteredData = filteredData.filter(activity => 
+            activities = activities.filter(activity => 
               new Date(activity.createdAt) >= monthAgo
             )
             break
+          }
             
           case 'all':
           default:
@@ -77,17 +96,31 @@ const ActivityPage = () => {
             break
         }
         
-        // Sort by date (newest first)
-        filteredData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        // Sort by date (newest first) - Fixed to handle invalid dates
+        activities.sort((a, b) => {
+          const dateA = new Date(a.createdAt)
+          const dateB = new Date(b.createdAt)
+          
+          // Handle invalid dates
+          if (isNaN(dateA.getTime())) return 1
+          if (isNaN(dateB.getTime())) return -1
+          
+          return dateB - dateA // Newest first
+        })
         
         setActivityData({
           ...response.data,
-          activities: filteredData
+          activities: activities,
+          activityHistory: activities // Ensure both properties exist
         })
+        
+        setLastUpdated(new Date())
       } else {
+        console.error('Failed to load activity data:', response.message)
         showError(response.message || 'Failed to load activity data')
       }
     } catch (error) {
+      console.error('Error loading activity data:', error)
       showError(error.message || 'Failed to load activity data')
     } finally {
       setLoading(false)
@@ -95,10 +128,38 @@ const ActivityPage = () => {
   }
 
   const filterOptions = [
-    { value: 'all', label: 'All Time' },
-    { value: 'today', label: 'Today' },
-    { value: 'week', label: 'This Week' },
-    { value: 'month', label: 'This Month' }
+    { 
+      value: 'all', 
+      label: 'All Time',
+      count: activityData?.activities?.length || activityData?.activityHistory?.length || 0
+    },
+    { 
+      value: 'today', 
+      label: 'Today',
+      count: (activityData?.activities || activityData?.activityHistory || []).filter(activity => {
+        const activityDate = new Date(activity.createdAt)
+        const today = new Date()
+        return activityDate.toDateString() === today.toDateString()
+      }).length
+    },
+    { 
+      value: 'week', 
+      label: 'This Week',
+      count: (activityData?.activities || activityData?.activityHistory || []).filter(activity => {
+        const activityDate = new Date(activity.createdAt)
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        return activityDate >= weekAgo
+      }).length
+    },
+    { 
+      value: 'month', 
+      label: 'This Month',
+      count: (activityData?.activities || activityData?.activityHistory || []).filter(activity => {
+        const activityDate = new Date(activity.createdAt)
+        const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        return activityDate >= monthAgo
+      }).length
+    }
   ]
 
   const getActivityIcon = (action) => {
@@ -163,23 +224,40 @@ const ActivityPage = () => {
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
               Track your SmartBite journey and progress
+              {lastUpdated && (
+                <span className="block text-xs text-gray-500 mt-1">
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
             </p>
           </div>
 
-          {/* Filter Dropdown */}
-          <div className="relative">
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 pr-8 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          <div className="flex items-center space-x-3">
+            {/* Refresh Button */}
+            <button
+              onClick={refreshData}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center"
             >
-              {filterOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+
+            {/* Filter Dropdown */}
+            <div className="relative">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 pr-8 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {filterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.count})
+                  </option>
+                ))}
+              </select>
+              <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -256,9 +334,9 @@ const ActivityPage = () => {
           Recent Activities
         </h3>
 
-        {activityData?.activityHistory && activityData.activityHistory.length > 0 ? (
+        {(activityData?.activities || activityData?.activityHistory) && (activityData.activities || activityData.activityHistory).length > 0 ? (
           <div className="space-y-4">
-            {activityData.activityHistory.map((activity, index) => (
+            {(activityData.activities || activityData.activityHistory).map((activity, index) => (
               <motion.div
                 key={activity._id || index}
                 initial={{ opacity: 0, x: -20 }}
