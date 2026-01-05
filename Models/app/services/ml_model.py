@@ -1,9 +1,28 @@
-import joblib
+try:
+    import joblib
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    JOBLIB_AVAILABLE = False
+
 import pandas as pd
+import os
 
 MODEL_PATH = "models/meal_distribution_model.pkl"
 
-model = joblib.load(MODEL_PATH)
+# Lazy loading to prevent memory issues during startup
+_model = None
+
+def get_model():
+    global _model
+    if not JOBLIB_AVAILABLE:
+        return None
+    if _model is None:
+        if os.path.exists(MODEL_PATH):
+            _model = joblib.load(MODEL_PATH)
+        else:
+            # Return None if file doesn't exist (for deployment)
+            _model = None
+    return _model
 
 # ✅ Must match training-time vocab
 DISEASES = [
@@ -69,6 +88,17 @@ def encode_profile(profile: dict) -> pd.DataFrame:
 
 
 def predict_distribution(profile: dict) -> dict:
+    model = get_model()
+    
+    # Return default distribution if model is not available
+    if model is None:
+        return {
+            "breakfast": 25.0,
+            "lunch": 30.0,
+            "dinner": 35.0,
+            "snacks": 10.0
+        }
+    
     df = encode_profile(profile)
 
     # 🔹 Align columns with training model
