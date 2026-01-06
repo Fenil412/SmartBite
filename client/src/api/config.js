@@ -2,12 +2,14 @@ import axios from 'axios'
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1' || 'https://smartbite-1o79.onrender.com/api/v1',
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
-})
+});
+
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -34,7 +36,7 @@ api.interceptors.response.use(
       localStorage.removeItem('smartbite_token')
       window.location.href = '/login'
     }
-    
+
     return Promise.reject({
       message: error.response?.data?.message || error.message || 'An error occurred',
       status: error.response?.status,

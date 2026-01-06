@@ -30,10 +30,10 @@ def create_app():
     # Health check endpoint
     @app.route('/health', methods=['GET'])
     def health_check():
-        """Health check endpoint"""
+        """Lightweight health check endpoint"""
         try:
+            # Simple database ping without heavy operations
             from app.db.mongo import client
-            # Test database connection
             client.admin.command('ping')
             db_status = "connected"
         except Exception as e:
@@ -50,7 +50,8 @@ def create_app():
                 'internal_api': 'active'
             },
             'version': '1.0.0',
-            'cors_origin': cors_origin
+            'memory_optimized': True,
+            'minimal_dependencies': True
         })
     
     # Debug endpoint to list all routes

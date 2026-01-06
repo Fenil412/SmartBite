@@ -87,39 +87,43 @@ def parse_weekly_response(content, days, distribution, weekly_cals):
     """Parse the AI response into individual day meal plans"""
     weekly_plan = {}
     
-    # Split content by day headers
-    sections = content.split("**")
-    current_day = None
-    current_content = ""
-    
-    for section in sections:
-        section = section.strip()
-        if not section:
-            continue
-            
-        # Check if this section is a day header
-        day_found = None
-        for day in days:
-            if day.lower() in section.lower():
-                day_found = day
-                break
+    try:
+        # Split content by day headers
+        sections = content.split("**")
+        current_day = None
+        current_content = ""
         
-        if day_found:
-            # Save previous day's content
-            if current_day and current_content:
-                weekly_plan[current_day] = current_content.strip()
+        for section in sections:
+            section = section.strip()
+            if not section:
+                continue
+                
+            # Check if this section is a day header
+            day_found = None
+            for day in days:
+                if day.lower() in section.lower():
+                    day_found = day
+                    break
             
-            # Start new day
-            current_day = day_found
-            current_content = f"**{section}**"
-        else:
-            # Add to current day's content
-            if current_day:
-                current_content += f"**{section}**"
-    
-    # Save last day's content
-    if current_day and current_content:
-        weekly_plan[current_day] = current_content.strip()
+            if day_found:
+                # Save previous day's content
+                if current_day and current_content:
+                    weekly_plan[current_day] = current_content.strip()
+                
+                # Start new day
+                current_day = day_found
+                current_content = f"**{section}**"
+            else:
+                # Add to current day's content
+                if current_day:
+                    current_content += f"**{section}**"
+        
+        # Save last day's content
+        if current_day and current_content:
+            weekly_plan[current_day] = current_content.strip()
+    except Exception:
+        # If parsing fails, use fallback
+        pass
     
     # Fill in any missing days with fallback
     for i, day in enumerate(days):
