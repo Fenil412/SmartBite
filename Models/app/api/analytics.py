@@ -6,7 +6,6 @@ Provides comprehensive analytics and data export functionality
 from flask import Blueprint, request, jsonify, send_file
 from datetime import datetime, timedelta
 import json
-import pandas as pd
 import io
 import hmac
 import hashlib
@@ -253,6 +252,15 @@ def export_user_data():
         }
         
         if export_format == 'excel':
+            # Lazy load pandas for Excel export
+            try:
+                import pandas as pd
+            except ImportError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Excel export not available - pandas not installed'
+                }), 500
+                
             # Create Excel file
             output = io.BytesIO()
             

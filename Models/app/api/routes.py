@@ -8,11 +8,8 @@ from app.services.groq_service import chat_ai
 from app.services.history_service import save_history, fetch_history
 from app.db.mongo import history_collection
 from app.models.schemas import MealPayload
-from app.services.ml_model import predict_distribution
-from app.services.weekly_optimizer import optimize_week
 from app.services.user_context_resolver import resolve_user_context
 from app.services.ai_meal_generator import generate_meals
-from app.services.normalize import normalize_payload
 from app.utils.response import success
 from app.services.weekly_summary_service import generate_weekly_summary
 from app.utils.user_context import normalize_user_context
@@ -115,8 +112,27 @@ def generate_weekly_plan_v3():
     targets = body["targets"]
     user_id = body["userId"]
 
-    distribution = predict_distribution(profile)
-    weekly_cals = optimize_week(targets["dailyCalorieTarget"])
+    # Lazy load ML model to prevent startup memory issues
+    try:
+        from app.services.ml_model import predict_distribution
+        distribution = predict_distribution(profile)
+    except Exception:
+        # Fallback distribution if ML model fails
+        distribution = {
+            "breakfast": 25.0,
+            "lunch": 30.0,
+            "dinner": 35.0,
+            "snacks": 10.0
+        }
+    
+    # Lazy load weekly optimizer to prevent startup memory issues
+    try:
+        from app.services.weekly_optimizer import optimize_week
+        weekly_cals = optimize_week(targets["dailyCalorieTarget"])
+    except Exception:
+        # Fallback to simple daily target if optimizer fails
+        daily_target = targets["dailyCalorieTarget"]
+        weekly_cals = [daily_target] * 7
 
     # Try to get user context, with fallback to Node.js API
     raw_user_ctx = None

@@ -3,7 +3,7 @@ services:
     name: smartbite-ai
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app.main:app --workers 1 --threads 2 --timeout 120 --max-requests 1000 --max-requests-jitter 100 --preload
+    startCommand: gunicorn app.main:app --workers 1 --threads 1 --timeout 120 --max-requests 500 --max-requests-jitter 50
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.7
@@ -13,6 +13,10 @@ services:
         value: production
       - key: FLASK_DEBUG
         value: False
+      - key: PYTHONUNBUFFERED
+        value: 1
+      - key: MALLOC_TRIM_THRESHOLD_
+        value: 100000
     scaling:
       minInstances: 1
       maxInstances: 1

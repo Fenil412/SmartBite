@@ -1,11 +1,15 @@
-from pulp import (
-    LpProblem,
-    LpMinimize,
-    LpVariable,
-    lpSum
-)
-
 def optimize_week(calorie_target: float):
+    try:
+        from pulp import (
+            LpProblem,
+            LpMinimize,
+            LpVariable,
+            lpSum
+        )
+    except ImportError:
+        # Fallback to simple distribution if pulp is not available
+        return [calorie_target] * 7
+    
     prob = LpProblem("WeeklyCalories", LpMinimize)
 
     days = range(7)
