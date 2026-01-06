@@ -772,13 +772,14 @@ def export_data():
             export_data['user_context'] = enrich_with_user_info(serialized_context)
         
         if export_format == 'excel':
-            # Lazy load pandas for Excel export
+            # Lazy load pandas and openpyxl for Excel export
             try:
                 import pandas as pd
-            except ImportError:
+                import openpyxl  # Required for Excel writing
+            except ImportError as e:
                 return jsonify({
                     'success': False,
-                    'error': 'Excel export not available - pandas not installed'
+                    'error': f'Excel export not available - missing dependencies: {str(e)}'
                 }), 500
                 
             # Create Excel file
