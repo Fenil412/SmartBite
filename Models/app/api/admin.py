@@ -6,6 +6,7 @@ Provides direct admin access to all AI collections
 from flask import Blueprint, request, jsonify, send_file, make_response
 from datetime import datetime, timedelta
 import json
+import pandas as pd
 import io
 import hmac
 import hashlib
@@ -772,16 +773,7 @@ def export_data():
             export_data['user_context'] = enrich_with_user_info(serialized_context)
         
         if export_format == 'excel':
-            # Lazy load pandas and openpyxl for Excel export
-            try:
-                import pandas as pd
-                import openpyxl  # Required for Excel writing
-            except ImportError as e:
-                return jsonify({
-                    'success': False,
-                    'error': f'Excel export not available - missing dependencies: {str(e)}'
-                }), 500
-                
+            
             # Create Excel file
             output = io.BytesIO()
             
@@ -838,14 +830,6 @@ def export_data():
             )
         
         elif export_format == 'csv':
-            # Lazy load pandas for CSV export
-            try:
-                import pandas as pd
-            except ImportError:
-                return jsonify({
-                    'success': False,
-                    'error': 'CSV export not available - pandas not installed'
-                }), 500
                 
             # Create CSV content
             csv_data = []
