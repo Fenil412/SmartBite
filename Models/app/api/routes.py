@@ -8,8 +8,6 @@ from app.services.groq_service import chat_ai
 from app.services.history_service import save_history, fetch_history
 from app.db.mongo import history_collection
 from app.models.schemas import MealPayload
-from app.services.ml_model import predict_distribution
-from app.services.weekly_optimizer import optimize_week
 from app.services.user_context_resolver import resolve_user_context
 from app.services.ai_meal_generator import generate_meals
 from app.services.normalize import normalize_payload
@@ -109,14 +107,37 @@ def analyze():
 
 @api.route("/generate-weekly-plan", methods=["POST"])
 def generate_weekly_plan_v3():
+    """Generate weekly meal plan with optimized performance and timeout handling"""
+    import time
+    start_time = time.time()
+    
     body = request.json
 
     profile = body["profile"]
     targets = body["targets"]
     user_id = body["userId"]
 
-    distribution = predict_distribution(profile)
-    weekly_cals = optimize_week(targets["dailyCalorieTarget"])
+    # Lazy load ML model to prevent startup memory issues
+    try:
+        from app.services.ml_model import predict_distribution
+        distribution = predict_distribution(profile)
+    except Exception:
+        # Fallback distribution if ML model fails
+        distribution = {
+            "breakfast": 25.0,
+            "lunch": 30.0,
+            "dinner": 35.0,
+            "snacks": 10.0
+        }
+    
+    # Lazy load weekly optimizer to prevent startup memory issues
+    try:
+        from app.services.weekly_optimizer import optimize_week
+        weekly_cals = optimize_week(targets["dailyCalorieTarget"])
+    except Exception:
+        # Fallback to simple daily target if optimizer fails
+        daily_target = targets["dailyCalorieTarget"]
+        weekly_cals = [daily_target] * 7
 
     # Try to get user context, with fallback to Node.js API
     raw_user_ctx = None
@@ -155,15 +176,36 @@ def generate_weekly_plan_v3():
 
     user_ctx = normalize_user_context(raw_user_ctx) if raw_user_ctx else {}
 
-    weekly_plan = {}
-    for i, day in enumerate(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]):
-        # Add day-specific context to ensure variety
-        day_context = {
-            "day": day,
-            "day_number": i + 1,
-            "week_position": "start" if i < 2 else "middle" if i < 5 else "weekend"
-        }
-        weekly_plan[day] = generate_meals(distribution, profile, day_context)
+    # Use batch generation for better performance (single API call instead of 7)
+    try:
+        from app.services.batch_meal_generator import generate_weekly_meals_batch
+        weekly_plan = generate_weekly_meals_batch(distribution, profile, weekly_cals)
+    except Exception:
+        # Fallback to individual day generation if batch fails
+        weekly_plan = {}
+        for i, day in enumerate(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]):
+            # Add day-specific context to ensure variety
+            day_context = {
+                "day": day,
+                "day_number": i + 1,
+                "week_position": "start" if i < 2 else "middle" if i < 5 else "weekend"
+            }
+            
+            # Calculate daily macros
+            daily_cals = weekly_cals[i] if i < len(weekly_cals) else weekly_cals[0]
+            daily_macros = {
+                'breakfast': round(daily_cals * distribution['breakfast'] / 100),
+                'lunch': round(daily_cals * distribution['lunch'] / 100),
+                'dinner': round(daily_cals * distribution['dinner'] / 100),
+                'snacks': round(daily_cals * distribution['snacks'] / 100)
+            }
+            
+            try:
+                weekly_plan[day] = generate_meals(daily_macros, profile, day_context)
+            except Exception:
+                # Use fallback if individual generation also fails
+                from app.services.batch_meal_generator import generate_fallback_meals
+                weekly_plan[day] = generate_fallback_meals(daily_macros, day_context)
 
     # Save history using username
     try:
@@ -171,9 +213,14 @@ def generate_weekly_plan_v3():
     except Exception:
         pass
 
+    # Log generation time for monitoring
+    generation_time = round(time.time() - start_time, 2)
+    
     return success({
         "userId": body["userId"],
-        "weeklyPlan": weekly_plan
+        "weeklyPlan": weekly_plan,
+        "generationTime": generation_time,
+        "generatedAt": time.time()
     })
 
 @api.route("/health-risk-report", methods=["POST"])
