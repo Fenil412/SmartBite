@@ -1,6 +1,14 @@
 import os
 import requests
+import re
 from app.constants.prompts import MEAL_GEN_PROMPT
+
+def remove_calories_from_response(response):
+    """Remove calorie counts from meal plan response while keeping the rest intact"""
+    # Remove patterns like "(XXX calories)" or "XXX calories"
+    cleaned = re.sub(r'\s*\(\d+\s*calories?\)', '', response)
+    cleaned = re.sub(r'\s*\d+\s*calories?', '', cleaned)
+    return cleaned
 
 def generate_meals(macros, profile, day_context=None):
     # Create day-specific prompt additions for variety
@@ -53,7 +61,10 @@ Make this day's meals UNIQUE and DIFFERENT from other days while maintaining the
         )
         
         if res.status_code == 200:
-            return res.json()["choices"][0]["message"]["content"]
+            ai_response = res.json()["choices"][0]["message"]["content"]
+            # Remove calories from the response while keeping the rest
+            cleaned_response = remove_calories_from_response(ai_response)
+            return cleaned_response
         else:
             # Return fallback meal plan if API fails
             return generate_fallback_meals(macros, day_context)
@@ -70,22 +81,22 @@ def generate_fallback_meals(macros, day_context=None):
     return f"""
 **{day_name} Meal Plan**
 
-**Breakfast ({macros['breakfast']} calories)**
+**Breakfast**
 - Oatmeal with fruits and nuts
 - Ingredients: 1 cup oats, 1 banana, 2 tbsp almonds, 1 cup milk
 - Preparation: Cook oats with milk, top with sliced banana and almonds
 
-**Lunch ({macros['lunch']} calories)**
+**Lunch**
 - Grilled chicken salad
 - Ingredients: 150g chicken breast, mixed greens, 1 tbsp olive oil, vegetables
 - Preparation: Grill chicken, toss with greens and dressing
 
-**Dinner ({macros['dinner']} calories)**
+**Dinner**
 - Baked salmon with vegetables
 - Ingredients: 200g salmon fillet, broccoli, sweet potato, herbs
 - Preparation: Bake salmon at 400°F for 15 minutes, steam vegetables
 
-**Snack ({macros['snacks']} calories)**
+**Snack**
 - Greek yogurt with berries
 - Ingredients: 1 cup Greek yogurt, 1/2 cup mixed berries
 - Preparation: Mix yogurt with fresh berries

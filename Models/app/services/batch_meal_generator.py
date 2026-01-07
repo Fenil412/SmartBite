@@ -1,6 +1,14 @@
 import os
 import requests
+import re
 from app.constants.prompts import MEAL_GEN_PROMPT
+
+def remove_calories_from_response(response):
+    """Remove calorie counts from meal plan response while keeping the rest intact"""
+    # Remove patterns like "(XXX calories)" or "XXX calories"
+    cleaned = re.sub(r'\s*\(\d+\s*calories?\)', '', response)
+    cleaned = re.sub(r'\s*\d+\s*calories?', '', cleaned)
+    return cleaned
 
 def generate_weekly_meals_batch(distribution, profile, weekly_cals):
     """Generate all 7 days of meals in a single API call for better performance"""
@@ -37,7 +45,7 @@ Target Calories:
 
 IMPORTANT: You are generating a COMPLETE 7-day meal plan. For each day, provide:
 1. Day name as header
-2. All 4 meals (Breakfast, Lunch, Dinner, Snack) with calorie counts
+2. All 4 meals (Breakfast, Lunch, Dinner, Snack) with calorie counts in parentheses
 3. Consistent format and detail level for all days
 4. Unique meals for each day - no repetition across the week
 """},
@@ -75,7 +83,9 @@ Generate the complete weekly meal plan now:
         
         if res.status_code == 200:
             weekly_content = res.json()["choices"][0]["message"]["content"]
-            return parse_weekly_response(weekly_content, days, distribution, weekly_cals)
+            # Remove calories from the response while keeping the rest
+            cleaned_content = remove_calories_from_response(weekly_content)
+            return parse_weekly_response(cleaned_content, days, distribution, weekly_cals)
         else:
             return generate_fallback_weekly_plan(distribution, weekly_cals)
             
@@ -87,43 +97,39 @@ def parse_weekly_response(content, days, distribution, weekly_cals):
     """Parse the AI response into individual day meal plans"""
     weekly_plan = {}
     
-    try:
-        # Split content by day headers
-        sections = content.split("**")
-        current_day = None
-        current_content = ""
-        
-        for section in sections:
-            section = section.strip()
-            if not section:
-                continue
-                
-            # Check if this section is a day header
-            day_found = None
-            for day in days:
-                if day.lower() in section.lower():
-                    day_found = day
-                    break
+    # Split content by day headers
+    sections = content.split("**")
+    current_day = None
+    current_content = ""
+    
+    for section in sections:
+        section = section.strip()
+        if not section:
+            continue
             
-            if day_found:
-                # Save previous day's content
-                if current_day and current_content:
-                    weekly_plan[current_day] = current_content.strip()
-                
-                # Start new day
-                current_day = day_found
-                current_content = f"**{section}**"
-            else:
-                # Add to current day's content
-                if current_day:
-                    current_content += f"**{section}**"
+        # Check if this section is a day header
+        day_found = None
+        for day in days:
+            if day.lower() in section.lower():
+                day_found = day
+                break
         
-        # Save last day's content
-        if current_day and current_content:
-            weekly_plan[current_day] = current_content.strip()
-    except Exception:
-        # If parsing fails, use fallback
-        pass
+        if day_found:
+            # Save previous day's content
+            if current_day and current_content:
+                weekly_plan[current_day] = current_content.strip()
+            
+            # Start new day
+            current_day = day_found
+            current_content = f"**{section}**"
+        else:
+            # Add to current day's content
+            if current_day:
+                current_content += f"**{section}**"
+    
+    # Save last day's content
+    if current_day and current_content:
+        weekly_plan[current_day] = current_content.strip()
     
     # Fill in any missing days with fallback
     for i, day in enumerate(days):
@@ -205,22 +211,22 @@ def generate_fallback_weekly_plan(distribution, weekly_cals):
         weekly_plan[day] = f"""
 **{day} Meal Plan**
 
-**Breakfast ({macros['breakfast']} calories)**
+**Breakfast**
 - {template['breakfast']}
 - Nutritious and balanced start to your day
 - Quick and easy preparation
 
-**Lunch ({macros['lunch']} calories)**
+**Lunch**
 - {template['lunch']}
 - Satisfying midday meal with protein and vegetables
 - Perfect for sustained energy
 
-**Dinner ({macros['dinner']} calories)**
+**Dinner**
 - {template['dinner']}
 - Complete evening meal with lean protein
 - Includes healthy sides and vegetables
 
-**Snack ({macros['snacks']} calories)**
+**Snack**
 - {template['snack']}
 - Healthy snack to maintain energy levels
 - Balanced nutrition between meals
@@ -236,22 +242,22 @@ def generate_fallback_meals(macros, day_context=None):
     return f"""
 **{day_name} Meal Plan**
 
-**Breakfast ({macros['breakfast']} calories)**
+**Breakfast**
 - Oatmeal with fruits and nuts
 - Ingredients: 1 cup oats, 1 banana, 2 tbsp almonds, 1 cup milk
 - Preparation: Cook oats with milk, top with sliced banana and almonds
 
-**Lunch ({macros['lunch']} calories)**
+**Lunch**
 - Grilled chicken salad
 - Ingredients: 150g chicken breast, mixed greens, 1 tbsp olive oil, vegetables
 - Preparation: Grill chicken, toss with greens and dressing
 
-**Dinner ({macros['dinner']} calories)**
+**Dinner**
 - Baked salmon with vegetables
 - Ingredients: 200g salmon fillet, broccoli, sweet potato, herbs
 - Preparation: Bake salmon at 400°F for 15 minutes, steam vegetables
 
-**Snack ({macros['snacks']} calories)**
+**Snack**
 - Greek yogurt with berries
 - Ingredients: 1 cup Greek yogurt, 1/2 cup mixed berries
 - Preparation: Mix yogurt with fresh berries
