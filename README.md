@@ -223,55 +223,81 @@ npm run dev
 
 #### Backend (.env)
 ```env
-# Server Configuration
+# ===== SERVER CONFIGURATION =====
 PORT=8000
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:3000
+NODE_ENV=production
 
-# Database
+# ===== DATABASE =====
 MONGODB_URI=mongodb://localhost:27017/smartbite
 DB_NAME=smartbite
 
-# Authentication
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRY=7d
-REFRESH_TOKEN_SECRET=your-refresh-token-secret
+# ===== CORS & FRONTEND =====
+CORS_ORIGIN=https://your-frontend-domain.com
+FRONTEND_ORIGIN=https://your-frontend-domain.com
 
-# File Storage (Cloudinary)
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
+# ===== JWT AUTHENTICATION =====
+ACCESS_TOKEN_SECRET=your-super-secret-access-token-key-min-32-chars
+REFRESH_TOKEN_SECRET=your-super-secret-refresh-token-key-min-32-chars
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_EXPIRY=7d
+VERIFICATION_TOKEN_SECRET=your-verification-token-secret-min-32-chars
 
-# Email Configuration
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
+# ===== PASSWORD SECURITY =====
+BCRYPT_SALT_ROUNDS=12
+PASSWORD_EXPIRY_DAYS=90
+PASSWORD_REMINDER_DAYS_BEFORE=7
 
-# External Services
-ML_SERVICE_URL=http://localhost:5000
+# ===== CLOUDINARY (FILE STORAGE) =====
+CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
+CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+
+# ===== EMAIL CONFIGURATION =====
+MAIL_USER=your-email@gmail.com
+MAIL_PASS=your-app-specific-password
+RESEND_API_KEY=
+
+# ===== SMS CONFIGURATION (TWILIO) =====
+TWILIO_ACCOUNT_SID=your-twilio-account-sid
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# ===== AI/ML SERVICES =====
+FLASK_AI_BASE_URL=https://your-ml-service-url.com
+ML_SERVICE_API_KEY=your-ml-service-api-key
+
+# ===== SECURITY =====
+INTERNAL_HMAC_SECRET=your-internal-hmac-secret-min-32-chars
+NODE_INTERNAL_KEY=your-node-internal-key-min-32-chars
+
+# ===== RATE LIMITING =====
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# ===== ADMIN REGISTRATION =====
+ADMIN_REGISTRATION_CODE=your-admin-registration-code
+SUPER_ADMIN_REGISTRATION_CODE=your-super-admin-registration-code
+
+# ===== MONITORING & LOGGING =====
+LOG_LEVEL=info
+ENABLE_REQUEST_LOGGING=true
+
+# ===== RENDER DEPLOYMENT SPECIFIC =====
+# These are automatically set by Render, but you can override if needed
+# RENDER=true
+# IS_PULL_REQUEST=false
 ```
 
 #### AI/ML Service (.env)
 ```env
-# Flask Configuration
-FLASK_ENV=development
+MONGODB_URI=
 PORT=5000
-
-# Database
-MONGODB_URI=mongodb://localhost:27017/smartbite
-
-# AI Services
-GROQ_API_KEY=your-groq-api-key
-
-# Model Configuration
-MODEL_PATH=./models/
-DATASET_PATH=./datasets/
-CACHE_ENABLED=True
-
-# Optimization Settings
-MAX_OPTIMIZATION_TIME=30
-DEFAULT_MEAL_COUNT=21
+CORS_ORIGIN=http://localhost:5173
+GROQ_API_KEY=
+GROQ_API_URL=https://api.groq.com/openai/v1/chat/completions
+LOG_LEVEL=INFO
+NODE_BACKEND_URL=http://localhost:8000
+INTERNAL_API_KEY=
 ```
 
 ## 🎯 Core Algorithms & AI Features
