@@ -4,7 +4,15 @@ A robust Node.js/Express backend server for the SmartBite AI-powered meal planni
 
 ## 🌟 Features
 
-### 🔐 Authentication & Security
+### � User Roles & Permissions
+SmartBite backend recognizes the following roles, enforced via middleware:
+
+- **Guest** – unauthenticated; limited to public endpoints.
+- **User** – standard account able to manage their own profile, meals, plans, etc.
+- **Admin** – can manage users, meals, meal plans, view analytics, and moderate content.
+- **Super‑Admin** – full privileges including admin management and system configuration.
+
+### �🔐 Authentication & Security
 - **JWT Authentication**: Secure token-based authentication system with refresh tokens
 - **Password Hashing**: bcrypt for secure password storage with salt rounds
 - **Role-based Access Control**: Admin, user, and super admin roles with granular permissions
@@ -51,6 +59,15 @@ A robust Node.js/Express backend server for the SmartBite AI-powered meal planni
 - **Cache Management**: Redis integration for session management and data caching
 
 ## 🏗️ Architecture
+
+### System Overview
+The backend sits between the React frontend and the database/ML services. It exposes REST APIs, handles business logic, enforces security, and forwards requests to the Python ML service when required.
+
+```
+[React Frontend] <--> [Express API] <--> [MongoDB]
+                             |
+                             +--> [Flask/ML Service]
+```
 
 ### Directory Structure
 ```

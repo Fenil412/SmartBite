@@ -169,6 +169,95 @@ npm run dev
 - **API Documentation**: http://localhost:8000/api/docs
 - **ML Service**: http://localhost:5000/api/docs
 
+## 📡 API Overview
+The SmartBite project exposes RESTful endpoints across multiple services. Below is a high‑level summary; refer to the individual `server/README.md` and `Models/README.md` for the complete list of routes.
+
+**Backend (Node/Express)**
+- Authentication: `/api/v1/users/*` (register, login, logout, password reset)
+- User management: profile, preferences, avatars
+- Meal and nutrition: `/api/v1/meals/*` (CRUD, favorites)
+- Meal planning & grocery: `/api/v1/meal-plans/*`, `/api/v1/groceries/*`
+- Admin & analytics: `/api/v1/admin/*`, `/api/v1/analytics/*`
+
+**AI/ML Service (Flask)**
+- Recommendation endpoints: `/api/v1/ml/recommendations` and subroutes
+- Health analysis: `/api/v1/ml/health`, `/api/v1/ml/optimization`
+- Chat interface: `/api/v1/ml/chat` (Groq/OpenAI proxy)
+
+## 👥 User Roles & Permissions
+SmartBite supports multiple user types with different capabilities:
+
+1. **Guest** – anonymous site visitor; can browse public meal data.
+2. **User** – registered individual; can create/modify profiles, save meals, generate plans, and see personalized recommendations.
+3. **Admin** – application administrator; has access to user management, content moderation, analytics dashboards, and can perform CRUD on meals and plans.
+4. **Super‑Admin** – highest privileged account with the ability to manage admins and system settings.
+
+Role‑based middleware enforces access control on the backend (see `server/src/middlewares/role.middleware.js`).
+
+## 🧩 System Design
+The architecture consists of three main tiers:
+
+```
+[ React Frontend ] <--HTTP--> [ Node/Express API ]
+                              |        \
+                              |         \
+                         [ MongoDB ]   [ Flask/ML Service ]
+                              \
+                               --> [ Redis / Cache (optional) ]
+```
+
+- **Frontend**: single‑page React application served by Vite; interacts with the API via Axios.
+- **Backend API**: Express server handles business logic, authentication, database CRUD, and acts as a gateway to ML services.
+- **Database**: MongoDB stores users, meals, plans, analytics, and audit logs.
+- **ML Service**: separate Flask application that runs the machine learning models and optimization algorithms; communicated over HTTP.
+- **Cache/Queue**: Redis for caching session tokens and job queues (optional).
+
+## 🗂️ Top‑Level Folder Structure
+```
+SmartBite/
+├── client/     # React frontend
+├── server/     # Node/Express backend
+├── Models/     # Python ML service
+├── datasets/   # Static data used by ML models
+├── uploads/    # File uploads storage
+├── LICENSE
+└── README.md   # This document
+```
+Each sub‑directory contains its own README describing setup and usage.
+
+## 🧠 ER Diagram (simplified)
+```
+[User] 1---* [MealPlan] *---* [Meal]
+   |             |
+   |             * [GroceryItem]
+   * [Preference]
+   * [FavoriteMeal]
+
+[Admin] extends [User]
+```
+
+Entities:
+- **User**: profile information, dietary preferences, role
+- **Meal**: recipe, nutrition facts, tags, ingredients
+- **MealPlan**: collection of meals for a week, linked to a user
+- **GroceryItem**: generated from meal plans, includes quantity and cost
+- **Preference**: allergy, diet settings stored per user
+- **FavoriteMeal**: many‑to‑many linking users and meals
+
+> For a full detailed ER diagram, see `/docs/er-diagram.png` if available or generate using the database schema files.
+
+## 📚 How to Use the Project
+1. **Clone the repo** and install dependencies as described in the quick start guide above.
+2. **Start each service** in its own terminal (backend, frontend, ML service).
+3. **Register a user** via the frontend or `POST /api/v1/users/register`.
+4. **Authenticate** and explore features: browse meals, create meal plans, generate grocery lists, and chat with the AI assistant.
+5. **Admin users** can toggle to the admin dashboard to manage content and view analytics.
+6. **Developers** can run tests, add new models, or extend API routes by following the folder structures documented herein.
+
+---
+
+## 📦 Technology Stack
+
 ## 📦 Technology Stack
 
 ### Frontend Technologies

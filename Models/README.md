@@ -34,6 +34,15 @@ Advanced machine learning and AI services for the SmartBite application, providi
 
 ## 🏗️ Architecture
 
+### System Overview
+The AI/ML service operates independently of the main backend; it receives HTTP requests from the Express API, runs machine learning models/optimizations, and returns JSON responses. It uses MongoDB for model data and optionally Redis for caching.
+
+```
+[Express API] <--HTTP--> [Flask ML Service]
+                     \
+                      --> [MongoDB / Redis]
+```
+
 ### Directory Structure
 ```
 Models/
