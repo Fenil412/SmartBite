@@ -1,320 +1,321 @@
 # SmartBite Backend Server 🚀
 
-A robust Node.js/Express backend server for the SmartBite AI-powered meal planning application with comprehensive API endpoints, authentication, database management, and AI integration.
-
-## 🌟 Features
-
-### � User Roles & Permissions
-SmartBite backend recognizes the following roles, enforced via middleware:
-
-- **Guest** – unauthenticated; limited to public endpoints.
-- **User** – standard account able to manage their own profile, meals, plans, etc.
-- **Admin** – can manage users, meals, meal plans, view analytics, and moderate content.
-- **Super‑Admin** – full privileges including admin management and system configuration.
-
-### �🔐 Authentication & Security
-- **JWT Authentication**: Secure token-based authentication system with refresh tokens
-- **Password Hashing**: bcrypt for secure password storage with salt rounds
-- **Role-based Access Control**: Admin, user, and super admin roles with granular permissions
-- **Rate Limiting**: API rate limiting to prevent abuse and DDoS attacks
-- **CORS Configuration**: Secure cross-origin resource sharing with environment-based origins
-- **Input Validation**: Comprehensive request validation and sanitization using Joi/express-validator
-- **Security Headers**: Helmet.js for security headers and XSS protection
-
-### 📊 Database Management
-- **MongoDB Integration**: Mongoose ODM with connection pooling and error handling
-- **User Management**: Complete user profile, preferences, and authentication management
-- **Meal Database**: Comprehensive meal, nutrition, and ingredient data storage
-- **Analytics Storage**: User activity, nutrition tracking, and behavioral analytics
-- **File Uploads**: Multer integration with Cloudinary for image and document uploads
-- **Data Validation**: Schema validation with custom validators and error handling
-
-### 🍽️ Meal & Nutrition APIs
-- **Meal CRUD Operations**: Create, read, update, delete meals with advanced filtering
-- **Nutrition Analysis**: Detailed nutritional information processing and calculations
-- **Meal Planning**: Weekly meal plan generation, optimization, and management
-- **Grocery Lists**: Automatic grocery list generation from meal plans with cost estimation
-- **Dietary Restrictions**: Support for allergies, preferences, and custom dietary requirements
-- **Recipe Management**: Recipe storage, scaling, and nutritional analysis
-
-### 🤖 AI Integration & ML Services
-- **ML Model Integration**: Seamless connection to Python ML services via HTTP APIs
-- **AI Chat Interface**: Proxy to Groq AI services for nutrition insights and recommendations
-- **Recommendation Engine**: Personalized meal recommendations using collaborative and content-based filtering
-- **Health Analytics**: AI-powered health insights, risk assessments, and nutritional reports
-- **Weekly Planning**: AI-optimized weekly meal plans considering user preferences and constraints
-- **Nutrition Impact Analysis**: ML-based analysis of dietary choices on health outcomes
-
-### 📈 Analytics & Reporting
-- **User Analytics**: Comprehensive user activity tracking and behavioral analysis
-- **Nutrition Tracking**: Detailed nutritional analysis, trends, and goal tracking
-- **Admin Dashboard**: Complete admin analytics, user management, and system monitoring
-- **Performance Metrics**: API performance monitoring and database query optimization
-- **Export Capabilities**: PDF and Excel export for reports and meal plans
-
-### 🔄 Background Services
-- **Notification System**: Email and SMS notifications with retry mechanisms
-- **Cron Jobs**: Scheduled tasks for data cleanup, analytics, and user engagement
-- **Queue Management**: Background job processing for heavy computations
-- **Cache Management**: Redis integration for session management and data caching
-
-## 🏗️ Architecture
-
-### System Overview
-The backend sits between the React frontend and the database/ML services. It exposes REST APIs, handles business logic, enforces security, and forwards requests to the Python ML service when required.
-
-```
-[React Frontend] <--> [Express API] <--> [MongoDB]
-                             |
-                             +--> [Flask/ML Service]
-```
-
-### Directory Structure
-```
-server/
-├── src/
-│   ├── controllers/          # Request handlers and business logic
-│   │   ├── admin.controller.js
-│   │   ├── analytics.controller.js
-│   │   ├── meal.controller.js
-│   │   ├── mealPlan.controller.js
-│   │   ├── user.controller.js
-│   │   └── ...
-│   ├── models/              # Mongoose schemas and models
-│   │   ├── user.model.js
-│   │   ├── meal.model.js
-│   │   ├── mealPlan.model.js
-│   │   └── ...
-│   ├── routes/              # API route definitions
-│   │   ├── auth.routes.js
-│   │   ├── meal.routes.js
-│   │   ├── admin.routes.js
-│   │   └── ...
-│   ├── middlewares/         # Custom middleware functions
-│   │   ├── auth.middleware.js
-│   │   ├── role.middleware.js
-│   │   ├── error.middleware.js
-│   │   └── ...
-│   ├── services/            # Business logic and external integrations
-│   │   ├── aiSync.service.js
-│   │   ├── notification.service.js
-│   │   ├── mlContract.service.js
-│   │   └── ...
-│   ├── utils/               # Utility functions and helpers
-│   │   ├── mailer.js
-│   │   ├── cloudinary.js
-│   │   ├── ApiResponse.js
-│   │   └── ...
-│   ├── workers/             # Background job processors
-│   └── db/                  # Database configuration and connection
-├── uploads/                 # Temporary file storage
-├── public/                  # Static assets
-└── package.json
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js (v18+ recommended)
-- MongoDB (v5.0+)
-- Redis (optional, for caching)
-- Cloudinary account (for image uploads)
-
-### Installation
-
-1. **Clone and navigate to server directory:**
-```bash
-cd server
-```
-
-2. **Install dependencies:**
-```bash
-npm install
-```
-
-3. **Environment Configuration:**
-Create a `.env` file based on `.env.sample`:
-```bash
-cp .env.sample .env
-```
-
-Configure the following variables:
-```env
-# Server Configuration
-PORT=8000
-NODE_ENV=development
-
-# Database
-MONGODB_URI=mongodb://localhost:27017/smartbite
-DB_NAME=smartbite
-
-# Authentication
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRY=7d
-REFRESH_TOKEN_SECRET=your-refresh-token-secret
-REFRESH_TOKEN_EXPIRY=30d
-
-# Cloudinary (for file uploads)
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-
-# Email Configuration
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-# AI/ML Services
-ML_SERVICE_URL=http://localhost:5000
-GROQ_API_URL=http://localhost:5001
-
-# Redis (optional)
-REDIS_URL=redis://localhost:6379
-
-# CORS
-CORS_ORIGIN=http://localhost:3000
-```
-
-4. **Start the server:**
-
-Development mode:
-```bash
-npm run dev
-```
-
-Production mode:
-```bash
-npm start
-```
-
-## 📡 API Endpoints
-
-### Authentication
-- `POST /api/v1/users/register` - User registration
-- `POST /api/v1/users/login` - User login
-- `POST /api/v1/users/logout` - User logout
-- `POST /api/v1/users/refresh-token` - Refresh access token
-- `POST /api/v1/users/forgot-password` - Password reset request
-- `POST /api/v1/users/reset-password` - Password reset confirmation
-
-### User Management
-- `GET /api/v1/users/profile` - Get user profile
-- `PATCH /api/v1/users/profile` - Update user profile
-- `POST /api/v1/users/avatar` - Upload profile avatar
-- `GET /api/v1/users/preferences` - Get dietary preferences
-- `PATCH /api/v1/users/preferences` - Update dietary preferences
-
-### Meals & Nutrition
-- `GET /api/v1/meals` - Get meals with filtering and pagination
-- `POST /api/v1/meals` - Create new meal
-- `GET /api/v1/meals/:id` - Get meal details
-- `PATCH /api/v1/meals/:id` - Update meal
-- `DELETE /api/v1/meals/:id` - Delete meal
-- `POST /api/v1/meals/:id/favorite` - Toggle meal favorite
-
-### Meal Planning
-- `GET /api/v1/meal-plans` - Get user meal plans
-- `POST /api/v1/meal-plans` - Create meal plan
-- `GET /api/v1/meal-plans/:id` - Get meal plan details
-- `PATCH /api/v1/meal-plans/:id` - Update meal plan
-- `DELETE /api/v1/meal-plans/:id` - Delete meal plan
-- `POST /api/v1/meal-plans/generate` - AI-generate meal plan
-
-### AI & ML Integration
-- `POST /api/v1/ai/chat` - AI chat for nutrition advice
-- `POST /api/v1/ai/meal-analysis` - Analyze meal nutrition
-- `POST /api/v1/ai/weekly-plan` - Generate weekly meal plan
-- `POST /api/v1/ai/health-risk` - Health risk assessment
-- `GET /api/v1/ai/history` - Get AI interaction history
-
-### Analytics & Reports
-- `GET /api/v1/analytics/dashboard` - User dashboard analytics
-- `GET /api/v1/analytics/nutrition` - Nutrition tracking data
-- `GET /api/v1/analytics/goals` - Goal progress tracking
-- `POST /api/v1/analytics/export` - Export analytics data
-
-### Admin Endpoints
-- `GET /api/v1/admin/users` - Get all users (admin only)
-- `GET /api/v1/admin/analytics` - System analytics
-- `POST /api/v1/admin/regenerate-code` - Regenerate admin codes
-- `GET /api/v1/admin/ai-data` - AI service data overview
-
-## 🔧 Configuration
-
-### Environment Variables
-The server uses environment variables for configuration. Key variables include:
-
-- **Server**: `PORT`, `NODE_ENV`
-- **Database**: `MONGODB_URI`, `DB_NAME`
-- **Authentication**: `JWT_SECRET`, `JWT_EXPIRY`
-- **File Storage**: Cloudinary configuration
-- **Email**: SMTP configuration
-- **External Services**: ML service URLs
-
-### Database Models
-- **User**: Authentication, profile, preferences
-- **Meal**: Meal data, nutrition, ingredients
-- **MealPlan**: Weekly plans, schedules
-- **Notification**: User notifications and alerts
-- **Feedback**: User feedback and ratings
-- **Constraint**: Dietary restrictions and preferences
-
-## 🧪 Testing
-
-Run tests:
-```bash
-npm test
-```
-
-Run tests with coverage:
-```bash
-npm run test:coverage
-```
-
-## 📊 Monitoring & Logging
-
-- **Request Logging**: Morgan middleware for HTTP request logging
-- **Error Tracking**: Comprehensive error handling and logging
-- **Performance Monitoring**: API response time tracking
-- **Health Checks**: `/health` endpoint for service monitoring
-
-## 🔒 Security Features
-
-- **Input Sanitization**: XSS and injection prevention
-- **Rate Limiting**: Prevent API abuse
-- **CORS Configuration**: Secure cross-origin requests
-- **Helmet Integration**: Security headers
-- **JWT Security**: Secure token handling with refresh mechanism
-
-## 🚀 Deployment
-
-### Production Deployment
-1. Set `NODE_ENV=production`
-2. Configure production database
-3. Set up reverse proxy (Nginx)
-4. Configure SSL certificates
-5. Set up monitoring and logging
-
-### Docker Deployment
-```bash
-docker build -t smartbite-server .
-docker run -p 8000:8000 smartbite-server
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new features
-5. Ensure all tests pass
-6. Submit a pull request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+Node.js + Express REST API server for SmartBite. Handles authentication, meal/plan management, grocery generation, analytics, notifications, and acts as gateway to the Python Flask AI service.
 
 ---
 
-**Built with ❤️ for healthy living and smart nutrition management**
+## 📁 Directory Structure
+
+```
+server/
+├── src/
+│   ├── app.js                       # Express app: CORS, middleware, route mounting
+│   ├── index.js                     # Server entry point (DB connect + listen)
+│   ├── constants.js
+│   │
+│   ├── controllers/                 # Request handlers (business logic)
+│   │   ├── user.controller.js       # Auth, profile, activity
+│   │   ├── admin.controller.js      # Admin: users, meals, plans, export
+│   │   ├── meal.controller.js       # Meal CRUD + like toggle
+│   │   ├── mealPlan.controller.js   # Plan CRUD + adhere/skip/replace
+│   │   ├── recommendation.controller.js # AI plan generation (calls Flask)
+│   │   ├── grocery.controller.js    # Grocery list, cost, suggestions
+│   │   ├── analytics.controller.js  # Analytics + AI interaction stats
+│   │   ├── notification.controller.js # Notifications + SMS
+│   │   ├── feedback.controller.js   # Submit and read feedback
+│   │   ├── constraint.controller.js # Dietary constraints
+│   │   ├── mlContract.controller.js # Internal ML context/catalog
+│   │   └── healthcheck.controller.js
+│   │
+│   ├── models/                      # Mongoose schemas
+│   │   ├── user.model.js            # User: auth, profile, preferences, constraints
+│   │   ├── meal.model.js            # Meal: nutrition, ingredients, diet flags
+│   │   ├── mealPlan.model.js        # MealPlan: weekly schedule + adherence
+│   │   ├── constraint.model.js      # Per-user cooking/diet constraints
+│   │   ├── feedback.model.js        # User feedback entries
+│   │   ├── notification.model.js    # Notification records
+│   │   └── aiHistory.model.js       # AI interaction history log
+│   │
+│   ├── routes/                      # Route definitions
+│   │   ├── user.routes.js           # /api/v1/users
+│   │   ├── admin.routes.js          # /api/v1/admin
+│   │   ├── meal.routes.js           # /api/v1/meals
+│   │   ├── mealPlan.routes.js       # /api/v1/meal-plans
+│   │   ├── recommendation.routes.js # /api/v1/recommendations
+│   │   ├── grocery.routes.js        # /api/v1/meal-plans/:id/grocery-*
+│   │   ├── analytics.routes.js      # /api/v1/analytics
+│   │   ├── notification.routes.js   # /api/v1/notifications
+│   │   ├── feedback.routes.js       # /api/v1/feedback
+│   │   ├── constraint.routes.js     # /api/v1/constraints
+│   │   ├── mlContract.routes.js     # /api/ml (internal)
+│   │   ├── email.routes.js          # /api/v1/email
+│   │   └── healthcheck.routes.js    # /api/v1/healthcheck
+│   │
+│   ├── middlewares/
+│   │   ├── auth.middleware.js       # JWT verification
+│   │   ├── role.middleware.js       # adminOnly, superAdminOnly guards
+│   │   ├── multer.middleware.js     # File upload (disk storage)
+│   │   └── error.middleware.js      # Global error handler
+│   │
+│   ├── services/
+│   │   ├── aiSync.service.js        # Sync user context → Flask
+│   │   ├── notification.service.js  # Email (Resend) + SMS (Twilio)
+│   │   ├── mlContract.service.js    # Build ML context payloads
+│   │   ├── grocery.service.js       # Grocery logic
+│   │   └── cron/
+│   │       └── weeklySummary.cron.js # Weekly email summaries (node-cron)
+│   │
+│   ├── utils/
+│   │   ├── ApiResponse.js           # Standardized success response
+│   │   ├── ApiError.js              # Custom error class
+│   │   ├── mailer.js                # Resend email wrapper
+│   │   ├── cloudinary.js            # Cloudinary upload/delete
+│   │   └── ...
+│   │
+│   ├── workers/
+│   │   └── notification.retry.js    # Retry failed notification deliveries
+│   │
+│   └── db/
+│       └── index.js                 # MongoDB connection via Mongoose
+│
+├── uploads/                         # Temp upload storage (Multer)
+├── public/                          # Static assets
+├── .env.sample                      # Environment variable template
+└── package.json
+```
+
+---
+
+## 🗄️ Database Models
+
+### User Model (`user.model.js`)
+```
+fields: email, username, password (bcrypt), name, phone, avatar{publicId,url},
+        roles[user|admin|super_admin], isVerified, locale, timezone,
+        tokenVersion, refreshToken, passwordChangedAt, passwordResetOtp,
+        preferences{units, budgetTier, preferredCuisines},
+        profile{age, heightCm, weightKg, gender, activityLevel, goal,
+                dietaryPreferences, dietaryRestrictions, allergies, medicalNotes},
+        notificationPreferences{email, sms, events{signup,login,password,mealPlan,weeklySummary}},
+        favoriteMeals[Meal refs], constraints{maxCookTime, skillLevel, appliances},
+        activityHistory[], isDeleted, deletedAt, createdAt, updatedAt
+```
+
+### Meal Model (`meal.model.js`)
+```
+fields: name, description, cuisine, mealType[breakfast|lunch|dinner|snack],
+        nutrition{calories, protein, carbs, fats, fiber, sugar, sodium, glycemicIndex},
+        ingredients[], allergens[], isVegetarian, isVegan, isGlutenFree,
+        isDairyFree, isNutFree, costLevel, prepTimeMinutes, cookTime,
+        skillLevel, appliances[], image{publicId,url}, embeddingVector[],
+        createdBy→User, likedBy[User], isActive, status[pending|approved|rejected],
+        reviewedBy→User, reviewedAt, createdAt, updatedAt
+```
+
+### MealPlan Model (`mealPlan.model.js`)
+```
+fields: user→User, title, weekStartDate,
+        days[{
+          day[monday..sunday],
+          meals[{mealType, meal→Meal, adherence{status[planned|eaten|skipped|replaced], replacedWith}}]
+        }],
+        nutritionSummary{calories, protein, carbs, fats},
+        generatedBy[manual|ai], isActive, createdAt, updatedAt
+```
+
+---
+
+## 📡 API Endpoints
+
+### Authentication – `/api/v1/users`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/signup` | – | Register new user |
+| POST | `/login` | – | Login → JWT + refresh token |
+| POST | `/logout` | JWT | Logout |
+| POST | `/refresh-token` | – | Get new access token |
+| POST | `/password/request-otp` | – | Send OTP for password reset |
+| POST | `/password/reset` | – | Reset password with OTP |
+| GET | `/me` | JWT | Get current user |
+| PUT | `/avatar` | JWT | Update avatar (multipart upload) |
+| PUT | `/additional-data` | JWT | Store additional profile data |
+| PUT | `/update` | JWT | Update user profile |
+| DELETE | `/me` | JWT | Soft-delete account |
+| GET | `/activity` | JWT | Activity history |
+| GET | `/activity-stats` | JWT | Activity statistics |
+
+### Meals – `/api/v1/meals`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/` | – | List meals (paginated, filtered) |
+| POST | `/` | JWT | Create meal (with image) |
+| GET | `/:mealId` | – | Get meal detail |
+| PUT | `/:mealId` | JWT | Update meal |
+| DELETE | `/:mealId` | JWT | Delete meal |
+| POST | `/:mealId/like` | JWT | Toggle like |
+
+### Meal Plans – `/api/v1/meal-plans`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/` | JWT | Create plan |
+| GET | `/` | JWT | My meal plans |
+| GET | `/:planId` | JWT | Plan details |
+| PUT | `/:planId` | JWT | Update plan |
+| DELETE | `/:planId` | JWT | Delete plan |
+| POST | `/:planId/adhere` | JWT | Mark meal eaten |
+| POST | `/:planId/skip` | JWT | Skip meal |
+| POST | `/:planId/replace` | JWT | Replace meal |
+
+### Recommendations – `/api/v1/recommendations`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/generate` | JWT | Generate AI meal plan (proxies Flask) |
+| GET | `/history` | JWT | Past AI recommendation history |
+
+### Grocery – `/api/v1/meal-plans/:id/...`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/grocery-list` | JWT | Generate grocery list |
+| GET | `/cost-estimate` | JWT | Estimate grocery cost |
+| POST | `/missing-items` | JWT | Check missing items |
+| GET | `/grocery-summary` | JWT | Grocery summary |
+| POST | `/mark-purchased` | JWT | Mark items purchased |
+| GET | `/store-suggestions` | JWT | Store-section suggestions |
+| GET | `/budget-alternatives` | JWT | Budget alternatives |
+
+### Analytics – `/api/v1/analytics`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/` | JWT | Dashboard analytics |
+| GET | `/export` | JWT | Export user data |
+| GET | `/feedback` | JWT | Feedback statistics |
+| GET | `/constraints` | JWT | Constraint statistics |
+| GET | `/ai-interactions` | JWT | AI interaction stats |
+| GET | `/ai-interactions/history` | JWT | AI interaction history |
+| GET | `/ai-interactions/dashboard` | JWT | AI dashboard summary |
+
+### Notifications – `/api/v1/notifications`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/` | JWT | All notifications |
+| GET | `/unread-count` | JWT | Count of unread |
+| GET | `/latest` | JWT | Latest notifications |
+| PATCH | `/:id/read` | JWT | Mark as read |
+| PATCH | `/:id/unread` | JWT | Mark as unread |
+| PATCH | `/mark-all-read` | JWT | Mark all read |
+| POST | `/test-sms` | JWT | Test SMS |
+| GET | `/sms-status` | JWT | SMS system status |
+
+### Feedback – `/api/v1/feedback`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/` | JWT | Submit feedback |
+| GET | `/` | JWT | My feedback |
+
+### Constraints – `/api/v1/constraints`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/` | JWT | Upsert constraints |
+| GET | `/` | JWT | Get my constraints |
+| DELETE | `/` | JWT | Delete constraints |
+
+### Admin – `/api/v1/admin`
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/dashboard/stats` | Admin | Dashboard stats |
+| GET | `/system/info` | SuperAdmin | System info |
+| GET | `/activity/recent` | Admin | Recent activity |
+| POST | `/users/register-admin` | SuperAdmin | Create admin |
+| GET | `/users` | Admin | All users |
+| GET | `/users/:userId` | Admin | User by ID |
+| PUT | `/users/:userId/role` | SuperAdmin | Update role |
+| PUT | `/users/:userId/status` | Admin | Toggle status |
+| DELETE | `/users/:userId` | Admin | Delete user |
+| PUT | `/users/:userId/restore` | Admin | Restore user |
+| POST | `/users/:userId/test-sms` | Admin | Test SMS |
+| GET | `/meals` | Admin | All meals |
+| PUT | `/meals/:mealId/status` | Admin | Update meal status |
+| DELETE | `/meals/:mealId` | Admin | Delete meal |
+| GET | `/meal-plans` | Admin | All plans |
+| DELETE | `/meal-plans/:id` | Admin | Delete plan |
+| GET | `/constraints` | Admin | All constraints |
+| DELETE | `/constraints/:id` | Admin | Delete constraint |
+| GET | `/notifications` | Admin | All notifications |
+| GET | `/notifications/stats` | Admin | Notification stats |
+| DELETE | `/notifications/:id` | Admin | Delete notification |
+| GET | `/feedback` | Admin | All feedback |
+| DELETE | `/feedback/:id` | Admin | Delete feedback |
+| GET | `/codes` | SuperAdmin | Admin codes |
+| POST | `/codes/regenerate` | SuperAdmin | Regenerate codes |
+| GET | `/export/:type` | Admin | Export data |
+
+---
+
+## 🚀 Setup & Running
+
+```bash
+cd server
+npm install
+
+# Copy and configure env
+cp .env.sample .env
+
+# Development (auto-reload)
+npm run dev
+
+# Production
+npm start
+```
+
+**Required environment variables:**
+```env
+PORT=8000
+NODE_ENV=development
+MONGODB_URI=mongodb+srv://...
+ACCESS_TOKEN_SECRET=...
+REFRESH_TOKEN_SECRET=...
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+RESEND_API_KEY=...
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=...
+FLASK_AI_BASE_URL=http://localhost:5000
+INTERNAL_HMAC_SECRET=...
+ADMIN_REGISTRATION_CODE=...
+SUPER_ADMIN_REGISTRATION_CODE=...
+```
+
+---
+
+## 📦 Key Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| express | 5.x | Web framework |
+| mongoose | 8.x | MongoDB ODM |
+| jsonwebtoken | 9.x | JWT auth tokens |
+| bcrypt | 6.x | Password hashing |
+| cloudinary | 2.x | Image storage |
+| multer | 2.x | File uploads |
+| resend | 4.x | Email delivery |
+| twilio | 5.x | SMS delivery |
+| node-cron | 4.x | Scheduled tasks |
+| axios | 1.x | HTTP client (→Flask) |
+| validator | 13.x | Input validation |
+| mongoose-paginate-v2 | Latest | Pagination plugin |
+
+---
+
+## 👥 User Roles
+
+| Role | Middleware | Permissions |
+|------|-----------|-------------|
+| `user` | JWT only | Own data only |
+| `admin` | `adminOnly` | Manage all content + users |
+| `super_admin` | `superAdminOnly` | Admin + system config |
+
+---
+
+*Part of the [SmartBite](../README.md) project*
