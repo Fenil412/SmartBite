@@ -41,15 +41,16 @@ export const sendMail = async ({ to, subject, text, html }) => {
     return;
   }
 
+const PRIMARY_FROM = 'SmartBite <no-reply@mealgenerator.me>';
+const FALLBACK_FROM = 'SmartBite <onboarding@resend.dev>';
+  
   // Handle domain verification restrictions
   const verifiedEmail = process.env.RESEND_VERIFIED_EMAIL || 'chodvadiyafenil@gmail.com';
   const hasVerifiedDomain = process.env.RESEND_VERIFIED_DOMAIN;
   
   // If no verified domain, only send to verified email for testing
   const finalTo = hasVerifiedDomain ? to : verifiedEmail;
-  const fromAddress = hasVerifiedDomain 
-    ? `SmartBite <no-reply@${process.env.RESEND_VERIFIED_DOMAIN}>`
-    : 'SmartBite <onboarding@resend.dev>';
+  const fromAddress = hasVerifiedDomain ? PRIMARY_FROM : FALLBACK_FROM;
 
   // Log if email is being redirected due to domain restrictions
   if (!hasVerifiedDomain && to !== verifiedEmail) {
